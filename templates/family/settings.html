@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Family Settings — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="text-center mb-4"><div style="font-size:3rem;">⚙️</div><h2>Family Settings</h2></div>
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label fw-700">Family Name</label>
+          <input type="text" name="family_name" value="{{ family.name }}" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-700">Currency Symbol</label>
+          <select name="currency_symbol" class="form-select">
+            <option value="€" {% if family.currency_symbol == "€" %}selected{% endif %}>€ Euro</option>
+            <option value="£" {% if family.currency_symbol == "£" %}selected{% endif %}>£ Pound</option>
+            <option value="$" {% if family.currency_symbol == "$" %}selected{% endif %}>$ Dollar</option>
+            <option value="kr" {% if family.currency_symbol == "kr" %}selected{% endif %}>kr Krone</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-700">Points per Currency Unit</label>
+          <input type="number" name="points_per_unit" value="{{ family.points_per_unit }}" class="form-control" min="1">
+          <small class="text-muted fw-700">e.g. 100 means 100 pts = {{ family.currency_symbol }}1.00</small>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-ct-primary flex-grow-1 btn-lg">💾 Save Settings</button>
+          <a href="{% url 'family:overview' %}" class="btn btn-outline-secondary btn-lg" style="border-radius:.9rem;font-weight:700">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

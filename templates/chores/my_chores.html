@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}My Chores — ChoreTracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+  <h1 class="mb-0">✅ My Chores</h1>
+  <a href="{% url 'dashboard:home' %}" class="btn btn-ct-primary">
+    <i class="bi bi-house-fill me-1"></i>Dashboard
+  </a>
+</div>
+
+<!-- Pending tasks -->
+<h5 class="section-title mb-3">📋 To Do ({{ pending|length }})</h5>
+<div class="d-flex flex-column gap-2 mb-4">
+  {% for a in pending %}
+  <div class="task-row d-flex align-items-center gap-3 {% if a.is_overdue %}overdue{% endif %}">
+    <div style="font-size:2rem;">{{ a.chore.category_icon }}</div>
+    <div class="flex-grow-1">
+      <div class="fw-800">{{ a.chore.title }}</div>
+      {% if a.chore.description %}
+      <div class="text-muted small fw-600">{{ a.chore.description }}</div>
+      {% endif %}
+      <small class="fw-700 {% if a.is_overdue %}text-danger{% else %}text-muted{% endif %}">
+        Due: {{ a.due_date|date:"D d M Y, H:i" }}
+        {% if a.is_overdue %}🚨 OVERDUE!{% endif %}
+      </small>
+    </div>
+    <div class="text-center">
+      <div class="points-pill positive">{{ a.chore.points_display }}</div>
+    </div>
+    <a href="{% url 'chores:complete' a.pk %}" class="btn btn-ct-success">
+      <i class="bi bi-check-circle me-1"></i>Done!
+    </a>
+  </div>
+  {% empty %}
+  <div class="ct-card p-4 text-center">
+    <div style="font-size:3rem;">🎉</div>
+    <p class="fw-800 mb-0">No pending chores! You're all caught up!</p>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Awaiting approval -->
+{% if awaiting %}
+<h5 class="section-title mb-3">⏳ Waiting for Approval ({{ awaiting|length }})</h5>
+<div class="d-flex flex-column gap-2 mb-4">
+  {% for a in awaiting %}
+  <div class="task-row awaiting d-flex align-items-center gap-3">
+    <div style="font-size:2rem;">{{ a.chore.category_icon }}</div>
+    <div class="flex-grow-1">
+      <div class="fw-800">{{ a.chore.title }}</div>
+      <small class="text-muted fw-700">Submitted {{ a.completed_at|date:"d M, H:i" }}</small>
+      {% if a.note %}
+      <div class="small text-muted mt-1">📝 "{{ a.note }}"</div>
+      {% endif %}
+    </div>
+    <div class="points-pill">{{ a.chore.points_display }}</div>
+    <span class="badge rounded-pill" style="background:var(--ct-yellow);color:white;font-size:.8rem;padding:.4rem .8rem">Pending...</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recently approved -->
+{% if approved %}
+<h5 class="section-title mb-3">✅ Recently Approved</h5>
+<div class="d-flex flex-column gap-2 mb-4">
+  {% for a in approved %}
+  <div class="task-row approved d-flex align-items-center gap-3">
+    <div style="font-size:2rem;">{{ a.chore.category_icon }}</div>
+    <div class="flex-grow-1">
+      <div class="fw-800">{{ a.chore.title }}</div>
+      <small class="text-muted fw-700">Approved {{ a.approved_at|date:"d M, H:i" }}</small>
+    </div>
+    <div class="points-pill positive">+{{ a.points_awarded }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Rejected -->
+{% if rejected %}
+<h5 class="section-title mb-3" style="color:var(--ct-red)">❌ Rejected</h5>
+<div class="d-flex flex-column gap-2">
+  {% for a in rejected %}
+  <div class="task-row overdue d-flex align-items-center gap-3">
+    <div style="font-size:2rem;">{{ a.chore.category_icon }}</div>
+    <div class="flex-grow-1">
+      <div class="fw-800">{{ a.chore.title }}</div>
+      {% if a.rejection_reason %}
+      <small class="text-danger fw-700">Reason: {{ a.rejection_reason }}</small>
+      {% endif %}
+    </div>
+    <div class="points-pill negative">{{ a.chore.points_display }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

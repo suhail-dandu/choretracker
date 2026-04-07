@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Create Your Family — ChoreTracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-2">
+  <div class="col-12 col-md-7 col-lg-6">
+    <div class="text-center mb-4">
+      <div style="font-size:4rem;">👨‍👩‍👧‍👦</div>
+      <h1 class="mb-1">Create Your Family</h1>
+      <p class="text-muted fw-700">Set up your ChoreTracker family as a parent</p>
+    </div>
+
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+
+        <h5 class="section-title mb-3">🏠 Family Details</h5>
+        <div class="row g-3 mb-4">
+          <div class="col-md-8">
+            <label class="form-label">Family Name</label>
+            {{ form.family_name }}
+            {% if form.family_name.errors %}<div class="text-danger small fw-700 mt-1">{{ form.family_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Currency</label>
+            {{ form.currency_symbol }}
+          </div>
+        </div>
+
+        <h5 class="section-title mb-3">👤 Your Account</h5>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label class="form-label">First Name</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="text-danger small fw-700 mt-1">{{ form.first_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Last Name <small class="text-muted">(optional)</small></label>
+            {{ form.last_name }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Username</label>
+            {{ form.username }}
+            {% if form.username.errors %}<div class="text-danger small fw-700 mt-1">{{ form.username.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Password</label>
+            {{ form.password1 }}
+            {% if form.password1.errors %}<div class="text-danger small fw-700 mt-1">{{ form.password1.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Confirm Password</label>
+            {{ form.password2 }}
+            {% if form.password2.errors %}<div class="text-danger small fw-700 mt-1">{{ form.password2.errors.0 }}</div>{% endif %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-ct-primary w-100 btn-lg">
+          🚀 Create Family &amp; Get Started!
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center mt-3 fw-700">
+      Already have an account? <a href="{% url 'accounts:login' %}">Sign in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

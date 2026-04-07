@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Approve Chore — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="text-center mb-4"><div style="font-size:4rem;">✅</div><h2>Approve this Chore?</h2></div>
+    <div class="ct-card p-4 mb-4 text-center" style="background:var(--ct-green-lt);border:2px solid var(--ct-green)">
+      <div style="font-size:2.5rem;">{{ assignment.chore.category_icon }}</div>
+      <h4 class="fw-800 mt-2">{{ assignment.chore.title }}</h4>
+      <p class="text-muted fw-700">Completed by: {{ assignment.assigned_to.avatar }} {{ assignment.assigned_to.display_name }}</p>
+      {% if assignment.note %}<div class="p-2 rounded-2" style="background:var(--ct-yellow-lt)"><small class="fw-700">📝 "{{ assignment.note }}"</small></div>{% endif %}
+      <div class="points-pill positive mx-auto mt-3">{{ assignment.chore.points_display }} pts will be awarded</div>
+    </div>
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-ct-success flex-grow-1 btn-lg">✅ Yes, Approve!</button>
+      <a href="{% url 'chores:pending_approvals' %}" class="btn btn-outline-secondary btn-lg" style="border-radius:.9rem;font-weight:700">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

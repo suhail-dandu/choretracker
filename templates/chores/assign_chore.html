@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Assign Chore — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="text-center mb-4">
+      <div style="font-size:3rem;">📋</div>
+      <h2>Assign Chore</h2>
+    </div>
+
+    <!-- Chore summary -->
+    <div class="ct-card mb-4 p-3 d-flex align-items-center gap-3" style="background:var(--ct-purple-lt);border:2px solid var(--ct-purple)">
+      <div style="font-size:2.2rem;">{{ chore.category_icon }}</div>
+      <div class="flex-grow-1">
+        <div class="fw-800 fs-5">{{ chore.title }}</div>
+        {% if chore.description %}
+        <div class="text-muted small fw-600">{{ chore.description }}</div>
+        {% endif %}
+      </div>
+      <div class="points-pill {% if chore.is_penalty %}negative{% else %}positive{% endif %}">
+        {{ chore.points_display }} pts
+      </div>
+    </div>
+
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Assign to</label>
+          {{ form.assigned_to }}
+          {% if form.assigned_to.errors %}<div class="text-danger small fw-700 mt-1">{{ form.assigned_to.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Due Date & Time</label>
+          {{ form.due_date }}
+          {% if form.due_date.errors %}<div class="text-danger small fw-700 mt-1">{{ form.due_date.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-ct-primary flex-grow-1 btn-lg">🚀 Assign Chore</button>
+          <a href="{% url 'chores:list' %}" class="btn btn-outline-secondary btn-lg" style="border-radius:.9rem;font-weight:700">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Add Child — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7">
+    <div class="text-center mb-4"><div style="font-size:3.5rem;">👶</div><h2>Add a Child</h2></div>
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">First Name *</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="text-danger small fw-700 mt-1">{{ form.first_name.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Last Name</label>
+            {{ form.last_name }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Username *</label>
+            {{ form.username }}
+            {% if form.username.errors %}<div class="text-danger small fw-700 mt-1">{{ form.username.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Date of Birth</label>
+            {{ form.date_of_birth }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Avatar</label>
+            {{ form.avatar }}
+            <div id="avatarPreview" class="text-center mt-1" style="font-size:2.5rem;"></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Password *</label>
+            {{ form.password }}
+            <small class="text-muted fw-700">{{ form.password.help_text }}</small>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-ct-primary flex-grow-1 btn-lg">🎉 Add Child</button>
+          <a href="{% url 'family:overview' %}" class="btn btn-outline-secondary btn-lg" style="border-radius:.9rem;font-weight:700">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  const sel = document.getElementById('avatarSelect');
+  const prev = document.getElementById('avatarPreview');
+  function up() { if(prev && sel) prev.textContent = sel.value; }
+  if(sel) { sel.addEventListener('change', up); up(); }
+</script>
+{% endblock %}

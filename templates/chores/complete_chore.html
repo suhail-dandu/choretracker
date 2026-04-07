@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Mark Chore Done — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="text-center mb-4">
+      <div style="font-size:4rem;" class="float-anim">🌟</div>
+      <h2>Great work! Mark as Done?</h2>
+    </div>
+    <div class="ct-card mb-4 p-4 text-center" style="background:linear-gradient(135deg,var(--ct-green-lt),var(--ct-purple-lt));border:2px solid var(--ct-green)">
+      <div style="font-size:3rem;">{{ assignment.chore.category_icon }}</div>
+      <h4 class="fw-800 mt-2">{{ assignment.chore.title }}</h4>
+      {% if assignment.chore.description %}<p class="text-muted fw-600">{{ assignment.chore.description }}</p>{% endif %}
+      <div class="points-pill positive mx-auto mt-2">{{ assignment.chore.points_display }} pts</div>
+      <small class="text-muted fw-700 d-block mt-2">Due: {{ assignment.due_date|date:"D d M, H:i" }}</small>
+    </div>
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="form-label">Leave a note for your parent 💬</label>
+          {{ form.note }}
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-ct-success flex-grow-1 btn-lg">✅ Submit for Approval!</button>
+          <a href="{% url 'chores:my_chores' %}" class="btn btn-outline-secondary btn-lg" style="border-radius:.9rem;font-weight:700">Back</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}My Profile — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="ct-card p-4 text-center mb-4" style="background:linear-gradient(135deg,var(--ct-purple),var(--ct-pink));color:white">
+      <div style="font-size:4rem;">{{ user.avatar }}</div>
+      <h2 style="color:white" class="mt-2">{{ user.display_name }}</h2>
+      <p class="opacity-80 fw-700 mb-1">@{{ user.username }}</p>
+      <span class="badge rounded-pill" style="background:rgba(255,255,255,.25)">
+        {% if user.is_parent %}👑 Parent{% else %}⭐ Kid{% endif %}
+      </span>
+      {% if user.family %}
+      <div class="mt-2 opacity-90 fw-700">{{ user.family.name }}</div>
+      {% endif %}
+    </div>
+
+    {% if user.is_child %}
+    <div class="row g-3 mb-4">
+      <div class="col-6">
+        <div class="stat-card stat-purple text-center">
+          <div class="stat-num">{{ user.total_points }}</div>
+          <div class="stat-label">Total Points</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="stat-card stat-green text-center">
+          <div class="stat-num">{{ user.total_earned_lifetime }}</div>
+          <div class="stat-label">Lifetime Earned</div>
+        </div>
+      </div>
+    </div>
+
+    {% with badges=user.badges.all %}
+    {% if badges %}
+    <div class="ct-card p-3 mb-4">
+      <div class="ct-card-header">🏅 My Badges</div>
+      <div class="p-2 d-flex flex-wrap gap-2">
+        {% for badge in badges %}<span class="badge-chip">{{ badge.display }}</span>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+
+    <div class="ct-card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-700">Member since</span>
+        <span class="fw-700">{{ user.date_joined|date:"d M Y" }}</span>
+      </div>
+      {% if user.date_of_birth %}
+      <div class="d-flex justify-content-between align-items-center">
+        <span class="fw-700">Birthday</span>
+        <span class="fw-700">{{ user.date_of_birth|date:"d M" }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+      <a href="{% url 'chores:history' %}" class="btn btn-ct-primary flex-grow-1">📜 View History</a>
+      <a href="{% url 'dashboard:home' %}" class="btn btn-outline-secondary" style="border-radius:.9rem;font-weight:700">🏠 Home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

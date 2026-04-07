@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ChoreTracker 🌟{% endblock %}</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --ct-purple:    #7C3AED;
+      --ct-purple-lt: #EDE9FE;
+      --ct-pink:      #EC4899;
+      --ct-pink-lt:   #FCE7F3;
+      --ct-orange:    #F97316;
+      --ct-orange-lt: #FFF7ED;
+      --ct-green:     #10B981;
+      --ct-green-lt:  #D1FAE5;
+      --ct-yellow:    #F59E0B;
+      --ct-yellow-lt: #FEF3C7;
+      --ct-blue:      #3B82F6;
+      --ct-blue-lt:   #DBEAFE;
+      --ct-red:       #EF4444;
+      --ct-red-lt:    #FEE2E2;
+      --ct-bg:        #F8F7FF;
+      --ct-card:      #FFFFFF;
+      --ct-text:      #1E1B4B;
+      --ct-muted:     #6B7280;
+      --ct-border:    #E5E7EB;
+      --radius-lg:    1.25rem;
+      --radius-xl:    1.75rem;
+      --shadow-sm:    0 2px 8px rgba(124,58,237,.08);
+      --shadow-md:    0 4px 20px rgba(124,58,237,.12);
+      --shadow-lg:    0 8px 32px rgba(124,58,237,.18);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background-color: var(--ct-bg);
+      color: var(--ct-text);
+      min-height: 100vh;
+    }
+
+    /* ── Typography ── */
+    h1,h2,h3,.display-font { font-family: 'Fredoka One', cursive; letter-spacing: .5px; }
+    .fw-black { font-weight: 900; }
+
+    /* ── Navbar ── */
+    .ct-navbar {
+      background: linear-gradient(135deg, var(--ct-purple) 0%, #5B21B6 100%);
+      box-shadow: 0 4px 20px rgba(91,33,182,.3);
+      padding: .75rem 0;
+    }
+    .ct-navbar .navbar-brand {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.6rem;
+      color: #fff !important;
+      letter-spacing: 1px;
+    }
+    .ct-navbar .nav-link {
+      color: rgba(255,255,255,.85) !important;
+      font-weight: 700;
+      border-radius: .75rem;
+      padding: .4rem .9rem !important;
+      transition: all .2s;
+    }
+    .ct-navbar .nav-link:hover,
+    .ct-navbar .nav-link.active {
+      background: rgba(255,255,255,.18);
+      color: #fff !important;
+    }
+    .ct-navbar .navbar-toggler { border-color: rgba(255,255,255,.4); }
+    .ct-navbar .navbar-toggler-icon {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255,255,255,.8%29' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+
+    /* ── Cards ── */
+    .ct-card {
+      background: var(--ct-card);
+      border-radius: var(--radius-xl);
+      border: none;
+      box-shadow: var(--shadow-sm);
+      transition: transform .2s, box-shadow .2s;
+      overflow: hidden;
+    }
+    .ct-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+    .ct-card-header {
+      padding: 1.25rem 1.5rem .75rem;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.2rem;
+      border-bottom: 2px solid var(--ct-border);
+    }
+
+    /* ── Stat cards ── */
+    .stat-card {
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.12);
+      bottom: -30px; right: -20px;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.08);
+      top: -15px; right: 30px;
+    }
+    .stat-card .stat-icon { font-size: 2.5rem; opacity: .9; }
+    .stat-card .stat-num {
+      font-family: 'Fredoka One', cursive;
+      font-size: 2.4rem;
+      line-height: 1;
+    }
+    .stat-card .stat-label { font-size: .85rem; opacity: .9; font-weight: 700; }
+    .stat-purple  { background: linear-gradient(135deg, #7C3AED, #5B21B6); }
+    .stat-pink    { background: linear-gradient(135deg, #EC4899, #BE185D); }
+    .stat-green   { background: linear-gradient(135deg, #10B981, #059669); }
+    .stat-orange  { background: linear-gradient(135deg, #F97316, #EA580C); }
+    .stat-yellow  { background: linear-gradient(135deg, #F59E0B, #D97706); }
+    .stat-blue    { background: linear-gradient(135deg, #3B82F6, #2563EB); }
+
+    /* ── Kid avatars & leaderboard ── */
+    .avatar-circle {
+      width: 54px; height: 54px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+      border: 3px solid white;
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
+    }
+    .avatar-lg {
+      width: 90px; height: 90px;
+      font-size: 2.8rem;
+    }
+    .rank-badge {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: .95rem;
+      flex-shrink: 0;
+    }
+    .rank-1 { background: linear-gradient(135deg, #F59E0B, #D97706); color: white; }
+    .rank-2 { background: linear-gradient(135deg, #9CA3AF, #6B7280); color: white; }
+    .rank-3 { background: linear-gradient(135deg, #CD7F32, #a0522d); color: white; }
+    .rank-other { background: var(--ct-purple-lt); color: var(--ct-purple); }
+
+    /* ── Points pill ── */
+    .points-pill {
+      display: inline-flex; align-items: center; gap: .3rem;
+      background: var(--ct-purple-lt);
+      color: var(--ct-purple);
+      font-weight: 800;
+      border-radius: 2rem;
+      padding: .2rem .8rem;
+      font-size: .9rem;
+    }
+    .points-pill.positive { background: var(--ct-green-lt); color: var(--ct-green); }
+    .points-pill.negative { background: var(--ct-red-lt);   color: var(--ct-red); }
+
+    /* ── Progress bar ── */
+    .ct-progress {
+      height: 12px;
+      border-radius: 2rem;
+      background: var(--ct-border);
+      overflow: hidden;
+    }
+    .ct-progress-bar {
+      height: 100%;
+      border-radius: 2rem;
+      background: linear-gradient(90deg, var(--ct-purple), var(--ct-pink));
+      transition: width .6s ease;
+    }
+
+    /* ── Buttons ── */
+    .btn-ct-primary {
+      background: linear-gradient(135deg, var(--ct-purple), #5B21B6);
+      color: white; border: none;
+      border-radius: .9rem;
+      font-weight: 700;
+      padding: .55rem 1.4rem;
+      transition: all .2s;
+      box-shadow: 0 4px 14px rgba(124,58,237,.35);
+    }
+    .btn-ct-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(124,58,237,.45);
+      color: white;
+    }
+    .btn-ct-success {
+      background: linear-gradient(135deg, var(--ct-green), #059669);
+      color: white; border: none; border-radius: .9rem; font-weight: 700;
+      padding: .55rem 1.4rem; transition: all .2s;
+      box-shadow: 0 4px 14px rgba(16,185,129,.3);
+    }
+    .btn-ct-success:hover { transform: translateY(-2px); color: white; }
+    .btn-ct-warning {
+      background: linear-gradient(135deg, var(--ct-orange), #EA580C);
+      color: white; border: none; border-radius: .9rem; font-weight: 700;
+      padding: .55rem 1.4rem; transition: all .2s;
+    }
+    .btn-ct-warning:hover { transform: translateY(-2px); color: white; }
+    .btn-ct-danger {
+      background: linear-gradient(135deg, var(--ct-red), #DC2626);
+      color: white; border: none; border-radius: .9rem; font-weight: 700;
+      padding: .55rem 1.4rem; transition: all .2s;
+    }
+    .btn-ct-danger:hover { transform: translateY(-2px); color: white; }
+
+    /* ── Chore task row ── */
+    .task-row {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.25rem;
+      border: 2px solid var(--ct-border);
+      transition: all .2s;
+    }
+    .task-row:hover { border-color: var(--ct-purple); box-shadow: var(--shadow-sm); }
+    .task-row.overdue { border-color: var(--ct-red); background: var(--ct-red-lt); }
+    .task-row.awaiting { border-color: var(--ct-yellow); background: var(--ct-yellow-lt); }
+    .task-row.approved { border-color: var(--ct-green); background: var(--ct-green-lt); }
+
+    /* ── Badge chips ── */
+    .badge-chip {
+      display: inline-flex; align-items: center; gap: .25rem;
+      background: var(--ct-yellow-lt);
+      border: 1.5px solid var(--ct-yellow);
+      color: #92400E;
+      border-radius: 2rem;
+      padding: .15rem .65rem;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+
+    /* ── Alerts ── */
+    .alert { border-radius: var(--radius-lg); border: none; font-weight: 600; }
+    .alert-success { background: var(--ct-green-lt); color: #065F46; }
+    .alert-danger   { background: var(--ct-red-lt);   color: #991B1B; }
+    .alert-warning  { background: var(--ct-yellow-lt); color: #92400E; }
+    .alert-info     { background: var(--ct-blue-lt);   color: #1E40AF; }
+
+    /* ── Sidebar ── */
+    .ct-sidebar { display: none; }
+    @media (min-width: 992px) {
+      .ct-layout { display: flex; gap: 1.5rem; }
+      .ct-sidebar {
+        display: block; width: 260px; flex-shrink: 0;
+      }
+      .ct-main { flex: 1; min-width: 0; }
+    }
+
+    /* ── Forms ── */
+    .form-control, .form-select {
+      border-radius: .9rem;
+      border: 2px solid var(--ct-border);
+      font-weight: 600;
+      padding: .6rem 1rem;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--ct-purple);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+    }
+    .form-label { font-weight: 700; color: var(--ct-text); }
+
+    /* ── Section heading ── */
+    .section-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.4rem;
+      color: var(--ct-text);
+      display: flex; align-items: center; gap: .5rem;
+    }
+
+    /* ── Confetti burst (CSS only) ── */
+    @keyframes pop-in {
+      0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+      70%  { transform: scale(1.08) rotate(2deg); }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    .pop-in { animation: pop-in .4s ease forwards; }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+    .float-anim { animation: float 3s ease-in-out infinite; }
+
+    /* ── Footer ── */
+    .ct-footer {
+      background: linear-gradient(135deg, var(--ct-purple) 0%, #5B21B6 100%);
+      color: rgba(255,255,255,.8);
+      padding: 1.25rem 0;
+      margin-top: 3rem;
+      font-weight: 600;
+      font-size: .88rem;
+    }
+
+    /* ── Responsive tweaks ── */
+    @media (max-width: 576px) {
+      .stat-card .stat-num { font-size: 1.8rem; }
+      .ct-navbar .navbar-brand { font-size: 1.3rem; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--ct-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--ct-purple); border-radius: 4px; }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="navbar navbar-expand-lg ct-navbar sticky-top">
+  <div class="container">
+    <a class="navbar-brand" href="{% url 'dashboard:home' %}">
+      🌟 ChoreTracker
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMenu">
+      {% if user.is_authenticated %}
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}"
+             href="{% url 'dashboard:home' %}">
+            <i class="bi bi-house-heart-fill me-1"></i>Home
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'leaderboard' %}active{% endif %}"
+             href="{% url 'dashboard:leaderboard' %}">
+            <i class="bi bi-trophy-fill me-1"></i>Leaderboard
+          </a>
+        </li>
+        {% if user.is_child %}
+        <li class="nav-item">
+          <a class="nav-link {% if request.resolver_match.url_name == 'my_chores' %}active{% endif %}"
+             href="{% url 'chores:my_chores' %}">
+            <i class="bi bi-check2-circle me-1"></i>My Chores
+          </a>
+        </li>
+        {% endif %}
+        {% if user.is_parent %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+            <i class="bi bi-tools me-1"></i>Manage
+          </a>
+          <ul class="dropdown-menu" style="border-radius:1rem;border:none;box-shadow:var(--shadow-lg);">
+            <li>
+              <a class="dropdown-item fw-bold" href="{% url 'chores:list' %}">
+                <i class="bi bi-list-task me-2"></i>Chores Library
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item fw-bold" href="{% url 'chores:pending_approvals' %}">
+                <i class="bi bi-hourglass-split me-2"></i>Approvals
+                {% if pending_approvals_count %}
+                <span class="badge rounded-pill bg-danger ms-1">{{ pending_approvals_count }}</span>
+                {% endif %}
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item fw-bold" href="{% url 'family:overview' %}">
+                <i class="bi bi-people-fill me-2"></i>Family
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item fw-bold" href="{% url 'family:settings' %}">
+                <i class="bi bi-gear-fill me-2"></i>Settings
+              </a>
+            </li>
+          </ul>
+        </li>
+        {% endif %}
+      </ul>
+
+      <ul class="navbar-nav ms-auto align-items-lg-center">
+        <li class="nav-item me-2">
+          <span class="points-pill">
+            <i class="bi bi-star-fill"></i>
+            {{ user.total_points }} pts
+          </span>
+        </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+            <span style="font-size:1.4rem;">{{ user.avatar }}</span>
+            <span class="fw-bold">{{ user.display_name }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end" style="border-radius:1rem;border:none;box-shadow:var(--shadow-lg);">
+            <li>
+              <a class="dropdown-item fw-bold" href="{% url 'accounts:profile' %}">
+                <i class="bi bi-person-circle me-2"></i>Profile
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item fw-bold" href="{% url 'chores:history' %}">
+                <i class="bi bi-clock-history me-2"></i>History
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item fw-bold text-danger" href="{% url 'accounts:logout' %}">
+                <i class="bi bi-box-arrow-right me-2"></i>Logout
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+      {% else %}
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link fw-bold" href="{% url 'accounts:login' %}">
+            <i class="bi bi-box-arrow-in-right me-1"></i>Login
+          </a>
+        </li>
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<!-- ── Flash messages ── -->
+{% if messages %}
+<div class="container mt-3">
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- ── Main content ── -->
+<main class="container py-4">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- ── Footer ── -->
+<footer class="ct-footer text-center">
+  <div class="container">
+    🌟 ChoreTracker &mdash; Making chores fun for the whole family!
+    &nbsp;|&nbsp; Built with ❤️ using Django &amp; Bootstrap
+  </div>
+</footer>
+
+<!-- Bootstrap 5 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<script>
+  // Auto-dismiss alerts after 4 seconds
+  setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(el => {
+      const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+      bsAlert.close();
+    });
+  }, 4000);
+
+  // Animate stat numbers on load
+  document.querySelectorAll('.stat-num[data-target]').forEach(el => {
+    const target = parseInt(el.dataset.target);
+    let current = 0;
+    const step = Math.ceil(target / 30);
+    const timer = setInterval(() => {
+      current = Math.min(current + step, target);
+      el.textContent = current;
+      if (current >= target) clearInterval(timer);
+    }, 40);
+  });
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

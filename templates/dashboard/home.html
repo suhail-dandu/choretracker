@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% block title %}Dashboard 🏠 — ChoreTracker{% endblock %}
+
+{% block content %}
+
+{% if user.is_parent %}
+<!-- ════════════════════════════════════════════════
+     PARENT DASHBOARD
+═════════════════════════════════════════════════ -->
+
+<!-- Top header -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 class="mb-1">👋 Hey, {{ user.display_name }}!</h1>
+    <p class="text-muted fw-600 mb-0">
+      {{ family.name }} &mdash; {{ kids|length }} kid{{ kids|length|pluralize }} in the family
+    </p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'chores:create' %}" class="btn btn-ct-primary">
+      <i class="bi bi-plus-circle-fill me-1"></i>New Chore
+    </a>
+    {% if pending_approvals_count %}
+    <a href="{% url 'chores:pending_approvals' %}" class="btn btn-ct-warning">
+      <i class="bi bi-hourglass-split me-1"></i>
+      {{ pending_approvals_count }} Approval{{ pending_approvals_count|pluralize }}!
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stat row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-purple">
+      <div class="stat-icon">👨‍👩‍👧‍👦</div>
+      <div class="stat-num" data-target="{{ kids|length }}">{{ kids|length }}</div>
+      <div class="stat-label">Kids in Family</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-orange">
+      <div class="stat-icon">⏳</div>
+      <div class="stat-num" data-target="{{ pending_approvals_count }}">{{ pending_approvals_count }}</div>
+      <div class="stat-label">Awaiting Approval</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-green">
+      <div class="stat-icon">✅</div>
+      <div class="stat-num" data-target="{{ monthly_stats|length }}">
+        {% with total=0 %}
+          {% for s in monthly_stats %}{{ s.chores_done }}{% endfor %}
+        {% endwith %}
+      </div>
+      <div class="stat-label">Done This Month</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-pink">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-num" data-target="{{ overdue|length }}">{{ overdue|length }}</div>
+      <div class="stat-label">Overdue Tasks</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Kids leaderboard panel -->
+  <div class="col-lg-6">
+    <div class="ct-card h-100">
+      <div class="ct-card-header d-flex align-items-center justify-content-between">
+        <span>🏆 Kids Leaderboard</span>
+        <a href="{% url 'dashboard:leaderboard' %}" class="btn btn-sm btn-ct-primary">Full View</a>
+      </div>
+      <div class="p-3 d-flex flex-column gap-3">
+        {% for kid in kids %}
+        <div class="d-flex align-items-center gap-3">
+          <!-- Rank -->
+          <div class="rank-badge {% if forloop.counter == 1 %}rank-1{% elif forloop.counter == 2 %}rank-2{% elif forloop.counter == 3 %}rank-3{% else %}rank-other{% endif %}">
+            {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}{{ forloop.counter }}{% endif %}
+          </div>
+          <!-- Avatar -->
+          <div class="avatar-circle" style="background:linear-gradient(135deg,var(--ct-purple-lt),var(--ct-pink-lt))">
+            {{ kid.avatar }}
+          </div>
+          <!-- Info -->
+          <div class="flex-grow-1 min-width-0">
+            <div class="fw-800">{{ kid.display_name }}</div>
+            <div class="ct-progress mt-1">
+              <div class="ct-progress-bar" style="width:{% widthratio kid.total_points kids.0.total_points|default:1 100 %}%"></div>
+            </div>
+          </div>
+          <!-- Points -->
+          <div class="text-end">
+            <div class="fw-900 text-purple" style="color:var(--ct-purple)">{{ kid.total_points }}</div>
+            <small class="text-muted">pts</small>
+          </div>
+          <!-- Actions -->
+          <div class="d-flex gap-1">
+            <a href="{% url 'accounts:kid_profile' kid.pk %}" class="btn btn-sm" style="background:var(--ct-purple-lt);color:var(--ct-purple);border-radius:.7rem">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{% url 'chores:payout' kid.pk %}" class="btn btn-sm" style="background:var(--ct-green-lt);color:var(--ct-green);border-radius:.7rem" title="Pay out">
+              <i class="bi bi-cash-coin"></i>
+            </a>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-3 text-muted">
+          <div style="font-size:3rem;">👶</div>
+          <p class="fw-700">No kids yet! <a href="{% url 'family:add_child' %}">Add one</a></p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending approvals -->
+  <div class="col-lg-6">
+    <div class="ct-card h-100">
+      <div class="ct-card-header d-flex align-items-center justify-content-between">
+        <span>⏳ Needs Approval</span>
+        {% if pending_approvals_count %}
+        <span class="badge rounded-pill" style="background:var(--ct-orange);font-size:.85rem">{{ pending_approvals_count }}</span>
+        {% endif %}
+      </div>
+      <div class="p-3 d-flex flex-column gap-2">
+        {% for a in all_pending %}
+        <div class="task-row awaiting d-flex align-items-center gap-3">
+          <div style="font-size:1.6rem;">{{ a.chore.category_icon }}</div>
+          <div class="flex-grow-1">
+            <div class="fw-800">{{ a.chore.title }}</div>
+            <small class="text-muted">{{ a.assigned_to.avatar }} {{ a.assigned_to.display_name }}</small>
+          </div>
+          <div class="points-pill">{{ a.chore.points_display }} pts</div>
+          <div class="d-flex gap-1">
+            <a href="{% url 'chores:approve' a.pk %}" class="btn btn-sm btn-ct-success py-1">✅</a>
+            <a href="{% url 'chores:reject' a.pk %}" class="btn btn-sm btn-ct-danger py-1">❌</a>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-4 text-muted">
+          <div style="font-size:3rem;">🎉</div>
+          <p class="fw-700">All caught up! Nothing to approve.</p>
+        </div>
+        {% endfor %}
+        {% if pending_approvals_count > 5 %}
+        <a href="{% url 'chores:pending_approvals' %}" class="btn btn-ct-primary w-100 mt-2">
+          View all {{ pending_approvals_count }} approvals
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly stats per kid -->
+  <div class="col-12">
+    <div class="ct-card">
+      <div class="ct-card-header">📊 This Month's Progress</div>
+      <div class="p-3">
+        <div class="row g-3">
+          {% for s in monthly_stats %}
+          <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="p-3 rounded-3 text-center" style="background:var(--ct-purple-lt);border:2px dashed var(--ct-purple)">
+              <div style="font-size:2rem;">{{ s.kid.avatar }}</div>
+              <div class="fw-800 mt-1">{{ s.kid.display_name }}</div>
+              <div class="fw-900" style="font-size:1.5rem;color:var(--ct-purple)">{{ s.points_earned }} pts</div>
+              <small class="text-muted fw-700">{{ s.chores_done }} chore{{ s.chores_done|pluralize }} done</small>
+              <div class="mt-2">
+                <a href="{% url 'accounts:kid_profile' s.kid.pk %}" class="btn btn-sm btn-ct-primary">View</a>
+              </div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="col-12 text-center py-3 text-muted fw-700">No kids to show yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overdue tasks -->
+  {% if overdue %}
+  <div class="col-12">
+    <div class="ct-card" style="border:2px solid var(--ct-red)">
+      <div class="ct-card-header" style="color:var(--ct-red)">🚨 Overdue Tasks</div>
+      <div class="p-3 d-flex flex-column gap-2">
+        {% for a in overdue %}
+        <div class="task-row overdue d-flex align-items-center gap-3">
+          <div style="font-size:1.6rem;">{{ a.chore.category_icon }}</div>
+          <div class="flex-grow-1">
+            <div class="fw-800">{{ a.chore.title }}</div>
+            <small class="text-muted">{{ a.assigned_to.avatar }} {{ a.assigned_to.display_name }} &mdash; due {{ a.due_date|date:"d M, H:i" }}</small>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div><!-- /row -->
+
+
+{% else %}
+<!-- ════════════════════════════════════════════════
+     KID DASHBOARD
+═════════════════════════════════════════════════ -->
+
+<!-- Hero greeting -->
+<div class="ct-card mb-4" style="background:linear-gradient(135deg,var(--ct-purple) 0%,var(--ct-pink) 100%);color:white;overflow:visible;">
+  <div class="p-4">
+    <div class="row align-items-center">
+      <div class="col-auto">
+        <div class="avatar-circle avatar-lg float-anim" style="background:white;font-size:2.8rem;border:4px solid rgba(255,255,255,.5)">
+          {{ user.avatar }}
+        </div>
+      </div>
+      <div class="col">
+        <h2 class="mb-1" style="color:white;">Hey {{ user.display_name }}! 🌟</h2>
+        <p class="mb-0 opacity-90 fw-700">
+          You're ranked <strong>#{{ rank }}</strong> of {{ total_kids }} in {{ family.name }}!
+        </p>
+        {% if rank == 1 %}<span class="badge mt-1" style="background:rgba(255,255,255,.25);font-size:.9rem;">👑 You're the champion!</span>{% endif %}
+      </div>
+      <div class="col-auto text-center d-none d-sm-block">
+        <div style="font-size:2.8rem;font-family:'Fredoka One',cursive;line-height:1">{{ user.total_points }}</div>
+        <div class="opacity-90 fw-700">TOTAL POINTS</div>
+        <small class="opacity-75">= {{ family.currency_symbol }}{{ user.points_as_money|floatformat:2 }}</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Kid stat row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-purple pop-in">
+      <div class="stat-icon">⭐</div>
+      <div class="stat-num" data-target="{{ user.total_points }}">{{ user.total_points }}</div>
+      <div class="stat-label">Total Points</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-green pop-in" style="animation-delay:.1s">
+      <div class="stat-icon">💰</div>
+      <div class="stat-num">{{ user.points_as_money|floatformat:2 }}</div>
+      <div class="stat-label">{{ family.currency_symbol }} Earned</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-orange pop-in" style="animation-delay:.2s">
+      <div class="stat-icon">✅</div>
+      <div class="stat-num" data-target="{{ chores_this_month }}">{{ chores_this_month }}</div>
+      <div class="stat-label">Done This Month</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-pink pop-in" style="animation-delay:.3s">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-num" data-target="{{ rank }}">#{{ rank }}</div>
+      <div class="stat-label">Leaderboard Rank</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- My pending chores -->
+  <div class="col-lg-7">
+    <div class="ct-card h-100">
+      <div class="ct-card-header d-flex align-items-center justify-content-between">
+        <span>📋 My Chores</span>
+        <a href="{% url 'chores:my_chores' %}" class="btn btn-sm btn-ct-primary">View All</a>
+      </div>
+      <div class="p-3 d-flex flex-column gap-2">
+        {% for a in my_pending %}
+        <div class="task-row d-flex align-items-center gap-3 {% if a.is_overdue %}overdue{% endif %}">
+          <div style="font-size:1.8rem;">{{ a.chore.category_icon }}</div>
+          <div class="flex-grow-1">
+            <div class="fw-800">{{ a.chore.title }}</div>
+            <small class="text-muted fw-700">Due: {{ a.due_date|date:"D d M, H:i" }}{% if a.is_overdue %} 🚨 OVERDUE!{% endif %}</small>
+          </div>
+          <div class="points-pill positive">{{ a.chore.points_display }}</div>
+          <a href="{% url 'chores:complete' a.pk %}" class="btn btn-sm btn-ct-success">
+            Done! ✅
+          </a>
+        </div>
+        {% endfor %}
+
+        {% for a in my_awaiting %}
+        <div class="task-row awaiting d-flex align-items-center gap-3">
+          <div style="font-size:1.8rem;">⏳</div>
+          <div class="flex-grow-1">
+            <div class="fw-800">{{ a.chore.title }}</div>
+            <small class="text-muted fw-700">Waiting for parent approval...</small>
+          </div>
+          <div class="points-pill">{{ a.chore.points_display }}</div>
+        </div>
+        {% endfor %}
+
+        {% if not my_pending and not my_awaiting %}
+        <div class="text-center py-4">
+          <div style="font-size:3.5rem;">🎉</div>
+          <p class="fw-800 mb-0">All done! No chores right now.</p>
+          <small class="text-muted">Enjoy your free time!</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="col-lg-5 d-flex flex-column gap-4">
+
+    <!-- Badges -->
+    <div class="ct-card">
+      <div class="ct-card-header">🏅 My Badges</div>
+      <div class="p-3">
+        {% with badges=user.badges.all %}
+        {% if badges %}
+        <div class="d-flex flex-wrap gap-2">
+          {% for badge in badges %}
+          <span class="badge-chip">{{ badge.display }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted fw-700 text-center py-2 mb-0">Complete chores to earn badges! 🌟</p>
+        {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+
+    <!-- Recent transactions -->
+    <div class="ct-card flex-grow-1">
+      <div class="ct-card-header">💫 Recent Points</div>
+      <div class="p-3 d-flex flex-column gap-2">
+        {% for t in recent_transactions %}
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="fw-700 small">{{ t.reason|truncatechars:40 }}</div>
+            <small class="text-muted">{{ t.created_at|date:"d M H:i" }}</small>
+          </div>
+          <div class="points-pill {% if t.is_positive %}positive{% else %}negative{% endif %}">
+            {% if t.is_positive %}+{% endif %}{{ t.points }}
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted fw-700 text-center py-2 mb-0">No transactions yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div><!-- /right col -->
+
+  <!-- Leaderboard mini-widget -->
+  <div class="col-12">
+    <div class="ct-card">
+      <div class="ct-card-header d-flex justify-content-between align-items-center">
+        <span>👑 Family Leaderboard</span>
+        <a href="{% url 'dashboard:leaderboard' %}" class="btn btn-sm btn-ct-primary">Full View</a>
+      </div>
+      <div class="p-3">
+        <div class="row g-3 justify-content-center">
+          {% for kid in kids %}
+          <div class="col-auto text-center">
+            <div class="avatar-circle avatar-lg mx-auto mb-2 {% if kid.pk == user.pk %}pop-in{% endif %}"
+                 style="background:linear-gradient(135deg,var(--ct-purple-lt),var(--ct-pink-lt));
+                        {% if kid.pk == user.pk %}border:4px solid var(--ct-purple);{% endif %}">
+              {{ kid.avatar }}
+            </div>
+            <div class="fw-800 small">{{ kid.display_name }}</div>
+            <div class="fw-900" style="color:var(--ct-purple)">{{ kid.total_points }} pts</div>
+            {% if forloop.counter == 1 %}<div>👑</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /row -->
+{% endif %}
+
+{% endblock %}

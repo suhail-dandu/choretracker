@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Adjust Points — {{ kid.display_name }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-6">
+    <div class="text-center mb-4">
+      <div style="font-size:3rem;">{{ kid.avatar }}</div>
+      <h2>Adjust Points for {{ kid.display_name }}</h2>
+      <p class="text-muted fw-700">Current balance: <strong>{{ kid.total_points }} pts</strong></p>
+    </div>
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Points (+ to add, - to deduct)</label>
+          {{ form.points }}
+          <small class="text-muted fw-700">{{ form.points.help_text }}</small>
+        </div>
+        <div class="mb-4">
+          <label class="form-label">Reason</label>
+          {{ form.reason }}
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-ct-primary flex-grow-1">💰 Apply</button>
+          <a href="{% url 'accounts:kid_profile' kid.pk %}" class="btn btn-outline-secondary" style="border-radius:.9rem;font-weight:700">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

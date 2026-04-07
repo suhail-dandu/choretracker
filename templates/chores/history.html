@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Transaction History — {{ kid.display_name }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+  <h1 class="mb-0">📜 {{ kid.display_name }}'s History</h1>
+  <div class="d-flex gap-2">
+    {% if user.is_parent %}
+    <a href="{% url 'chores:export_csv' kid.pk %}" class="btn btn-outline-secondary" style="border-radius:.9rem;font-weight:700">
+      <i class="bi bi-download me-1"></i>Export CSV
+    </a>
+    {% endif %}
+    <a href="{% url 'dashboard:home' %}" class="btn btn-ct-primary"><i class="bi bi-house-fill me-1"></i>Dashboard</a>
+  </div>
+</div>
+
+<!-- Payouts summary -->
+{% if payouts %}
+<h5 class="section-title mb-3">💰 Pocket Money Payouts</h5>
+<div class="row g-3 mb-4">
+  {% for p in payouts %}
+  <div class="col-sm-6 col-md-4">
+    <div class="ct-card p-3 text-center">
+      <div class="fw-700 text-muted small">{{ p.paid_at|date:"F Y" }}</div>
+      <div class="fw-900 fs-4" style="color:var(--ct-green)">{{ family.currency_symbol }}{{ p.amount_euros }}</div>
+      <div class="text-muted small fw-700">{{ p.points_at_payout }} pts</div>
+      {% if p.note %}<div class="text-muted small mt-1">{{ p.note }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Transaction log -->
+<h5 class="section-title mb-3">💫 All Transactions</h5>
+<div class="ct-card">
+  <div class="p-3 d-flex flex-column gap-2">
+    {% for t in transactions %}
+    <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+      <div>
+        <div class="fw-700">{{ t.reason|truncatechars:60 }}</div>
+        <small class="text-muted">{{ t.created_at|date:"d M Y, H:i" }}
+          {% if t.created_by %} &mdash; {{ t.created_by.display_name }}{% endif %}
+        </small>
+      </div>
+      <div class="text-end ms-3">
+        <div class="points-pill {% if t.is_positive %}positive{% else %}negative{% endif %}">
+          {% if t.is_positive %}+{% endif %}{{ t.points }}
+        </div>
+        <small class="text-muted d-block mt-1">bal: {{ t.balance_after }}</small>
+      </div>
+    </div>
+    {% empty %}
+    <p class="text-center text-muted fw-700 py-4 mb-0">No transactions yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

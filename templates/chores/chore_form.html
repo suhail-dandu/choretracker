@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Chore — ChoreTracker{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7">
+    <div class="text-center mb-4">
+      <div style="font-size:3rem;">{% if action == 'Create' %}✨{% else %}✏️{% endif %}</div>
+      <h2>{{ action }} a Chore</h2>
+    </div>
+
+    <div class="ct-card p-4">
+      <form method="post">
+        {% csrf_token %}
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">Chore Title *</label>
+            {{ form.title }}
+            {% if form.title.errors %}<div class="text-danger small fw-700 mt-1">{{ form.title.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Icon (emoji)</label>
+            {{ form.icon }}
+          </div>
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            {{ form.description }}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Points *</label>
+            {{ form.points }}
+            <small class="text-muted fw-700">{{ form.points.help_text }}</small>
+            {% if form.points.errors %}<div class="text-danger small fw-700 mt-1">{{ form.points.errors.0 }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Category</label>
+            {{ form.category }}
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              {{ form.is_recurring }}
+              <label class="form-check-label fw-700" for="{{ form.is_recurring.id_for_label }}">
+                🔁 This is a recurring chore (appears regularly)
+              </label>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div class="col-12">
+            <div class="p-3 rounded-3" style="background:var(--ct-purple-lt);border:2px dashed var(--ct-purple)">
+              <div class="fw-700 mb-2 text-muted">Preview:</div>
+              <div class="d-flex align-items-center gap-3">
+                <div id="previewIcon" style="font-size:2rem;">⭐</div>
+                <div>
+                  <div class="fw-800" id="previewTitle">Chore title...</div>
+                  <div id="previewPoints" class="points-pill positive mt-1">+0 pts</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-ct-primary flex-grow-1 btn-lg">
+            {% if action == 'Create' %}✨ Create Chore{% else %}💾 Save Changes{% endif %}
+          </button>
+          <a href="{% url 'chores:list' %}" class="btn btn-outline-secondary btn-lg" style="border-radius:.9rem;font-weight:700">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const iconInput = document.querySelector('[name=icon]');
+  const titleInput = document.querySelector('[name=title]');
+  const pointsInput = document.querySelector('[name=points]');
+
+  function updatePreview() {
+    document.getElementById('previewIcon').textContent = iconInput.value || '⭐';
+    document.getElementById('previewTitle').textContent = titleInput.value || 'Chore title...';
+    const pts = parseInt(pointsInput.value) || 0;
+    const el = document.getElementById('previewPoints');
+    el.textContent = (pts >= 0 ? '+' : '') + pts + ' pts';
+    el.className = 'points-pill mt-1 ' + (pts >= 0 ? 'positive' : 'negative');
+  }
+
+  [iconInput, titleInput, pointsInput].forEach(el => {
+    if (el) el.addEventListener('input', updatePreview);
+  });
+  updatePreview();
+</script>
+{% endblock %}
