@@ -47,7 +47,7 @@ class User(AbstractUser):
 
     family = models.ForeignKey(Family, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=ROLE_CHILD)
-    avatar = models.CharField(max_length=10, default='🦁')
+    avatar = models.CharField(max_length=10, choices=AVATAR_CHOICES, default='🦁')
     date_of_birth = models.DateField(null=True, blank=True)
     total_points = models.IntegerField(default=0)
     total_earned_lifetime = models.IntegerField(default=0)
