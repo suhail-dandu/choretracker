@@ -60,8 +60,11 @@ TEMPLATES = [
 WSGI_APPLICATION = 'choretracker.wsgi.application'
 
 # Database
-DATABASES = os.environ.get('DATABASES')
-if not DATABASES:
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES = {'default': dj_database_url.parse(DATABASE_URL)}
+else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -102,7 +105,6 @@ POINTS_TO_CENTS = 1  # 1 point = 1 cent = €0.01
 
 # Messages
 from django.contrib.messages import constants as messages
-
 MESSAGE_TAGS = {
     messages.DEBUG: 'secondary',
     messages.INFO: 'info',
