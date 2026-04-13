@@ -351,12 +351,18 @@
             <i class="bi bi-house-heart-fill me-1"></i>Home
           </a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.resolver_match.url_name == 'leaderboard' %}active{% endif %}"
-             href="{% url 'dashboard:leaderboard' %}">
-            <i class="bi bi-trophy-fill me-1"></i>Leaderboard
-          </a>
-        </li>
+         <li class="nav-item">
+           <a class="nav-link {% if request.resolver_match.url_name == 'leaderboard' %}active{% endif %}"
+              href="{% url 'dashboard:leaderboard' %}">
+             <i class="bi bi-trophy-fill me-1"></i>Leaderboard
+           </a>
+         </li>
+         <li class="nav-item">
+           <a class="nav-link {% if request.resolver_match.app_name == 'calendar_tasks' %}active{% endif %}"
+              href="{% url 'calendar_tasks:calendar_view' %}">
+             <i class="bi bi-calendar-event-fill me-1"></i>Calendar
+           </a>
+         </li>
         {% if user.is_child %}
         <li class="nav-item">
           <a class="nav-link {% if request.resolver_match.url_name == 'my_chores' %}active{% endif %}"
@@ -365,38 +371,55 @@
           </a>
         </li>
         {% endif %}
-        {% if user.is_parent %}
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-            <i class="bi bi-tools me-1"></i>Manage
-          </a>
-          <ul class="dropdown-menu" style="border-radius:1rem;border:none;box-shadow:var(--shadow-lg);">
-            <li>
-              <a class="dropdown-item fw-bold" href="{% url 'chores:list' %}">
-                <i class="bi bi-list-task me-2"></i>Chores Library
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item fw-bold" href="{% url 'chores:pending_approvals' %}">
-                <i class="bi bi-hourglass-split me-2"></i>Approvals
-                {% if pending_approvals_count %}
-                <span class="badge rounded-pill bg-danger ms-1">{{ pending_approvals_count }}</span>
-                {% endif %}
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item fw-bold" href="{% url 'family:overview' %}">
-                <i class="bi bi-people-fill me-2"></i>Family
-              </a>
-            </li>
-            <li>
-              <a class="dropdown-item fw-bold" href="{% url 'family:settings' %}">
-                <i class="bi bi-gear-fill me-2"></i>Settings
-              </a>
-            </li>
-          </ul>
-        </li>
-        {% endif %}
+         {% if user.is_parent %}
+         <li class="nav-item dropdown">
+           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+             <i class="bi bi-tools me-1"></i>Manage
+           </a>
+           <ul class="dropdown-menu" style="border-radius:1rem;border:none;box-shadow:var(--shadow-lg);">
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'chores:list' %}">
+                 <i class="bi bi-list-task me-2"></i>Chores Library
+               </a>
+             </li>
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'chores:pending_approvals' %}">
+                 <i class="bi bi-hourglass-split me-2"></i>Approvals
+                 {% if pending_approvals_count %}
+                 <span class="badge rounded-pill bg-danger ms-1">{{ pending_approvals_count }}</span>
+                 {% endif %}
+               </a>
+             </li>
+             <li><hr class="dropdown-divider"></li>
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'calendar_tasks:recurring_templates_list' %}">
+                 <i class="bi bi-arrow-repeat me-2"></i>Recurring Chores
+               </a>
+             </li>
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'calendar_tasks:schedule_patterns_list' %}">
+                 <i class="bi bi-calendar-heart me-2"></i>Holidays/Breaks
+               </a>
+             </li>
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'calendar_tasks:bad_deeds_list' %}">
+                 <i class="bi bi-exclamation-circle me-2"></i>Bad Deeds
+               </a>
+             </li>
+             <li><hr class="dropdown-divider"></li>
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'family:overview' %}">
+                 <i class="bi bi-people-fill me-2"></i>Family
+               </a>
+             </li>
+             <li>
+               <a class="dropdown-item fw-bold" href="{% url 'family:settings' %}">
+                 <i class="bi bi-gear-fill me-2"></i>Settings
+               </a>
+             </li>
+           </ul>
+         </li>
+         {% endif %}
       </ul>
 
       <ul class="navbar-nav ms-auto align-items-lg-center">

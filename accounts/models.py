@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+import uuid
 
 
 class Family(models.Model):
@@ -52,6 +53,10 @@ class User(AbstractUser):
     total_points = models.IntegerField(default=0)
     total_earned_lifetime = models.IntegerField(default=0)
 
+    # Password reset fields
+    password_reset_token = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    password_reset_expires = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['first_name']
 
@@ -91,6 +96,27 @@ class User(AbstractUser):
             balance_after=self.total_points,
         )
         return self.total_points
+
+    def generate_password_reset_token(self):
+        """Generate a unique password reset token."""
+        from django.utils import timezone
+        self.password_reset_token = str(uuid.uuid4())
+        self.password_reset_expires = timezone.now() + timezone.timedelta(hours=24)
+        self.save(update_fields=['password_reset_token', 'password_reset_expires'])
+        return self.password_reset_token
+
+    def is_password_reset_token_valid(self):
+        """Check if password reset token is valid."""
+        from django.utils import timezone
+        if not self.password_reset_token:
+            return False
+        return self.password_reset_expires > timezone.now()
+
+    def clear_password_reset_token(self):
+        """Clear the password reset token."""
+        self.password_reset_token = None
+        self.password_reset_expires = None
+        self.save(update_fields=['password_reset_token', 'password_reset_expires'])
 
 
 class Badge(models.Model):

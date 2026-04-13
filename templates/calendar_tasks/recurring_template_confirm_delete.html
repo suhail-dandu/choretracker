@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete Recurring Chore - ChoreTracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h2 class="card-title mb-4 text-danger">⚠️ Delete Recurring Chore?</h2>
+
+                    <div class="alert alert-warning mb-4">
+                        <p>Are you sure you want to deactivate this recurring chore?</p>
+                        <p class="mb-0"><strong>{{ template.chore_title }}</strong></p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                🗑️ Yes, Deactivate It
+                            </button>
+                            <a href="{% url 'calendar_tasks:recurring_templates_list' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

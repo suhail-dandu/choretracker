@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Schedule Patterns - ChoreTracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📅 Schedule Patterns</h1>
+        <a href="{% url 'calendar_tasks:create_schedule_pattern' %}" class="btn btn-primary">
+            ➕ Add Pattern
+        </a>
+    </div>
+
+    <p class="text-muted">Manage holidays, breaks, and special schedules for your family.</p>
+
+    {% if patterns %}
+        <div class="row">
+            {% for pattern in patterns %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="card-title">{{ pattern.name }}</h5>
+                                    <p class="text-muted mb-0">
+                                        <span class="badge bg-{% if pattern.pattern_type == 'holiday' %}danger{% elif pattern.pattern_type == 'special' %}warning{% else %}info{% endif %}">
+                                            {{ pattern.get_pattern_type_display }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <span class="badge bg-{% if pattern.is_active %}success{% else %}secondary{% endif %}">
+                                    {% if pattern.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </div>
+
+                            {% if pattern.description %}
+                                <p class="card-text small">{{ pattern.description }}</p>
+                            {% endif %}
+
+                            <div class="small text-muted mb-3">
+                                <p class="mb-1">
+                                    <strong>📅 Dates:</strong> {{ pattern.start_date }} to {{ pattern.end_date }}
+                                </p>
+                                <p class="mb-0"><strong>Duration:</strong> {{ pattern.start_date|timesince:pattern.end_date }}</p>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'calendar_tasks:edit_schedule_pattern' pattern.pk %}" class="btn btn-outline-primary btn-sm flex-grow-1">
+                                    ✏️ Edit
+                                </a>
+                                <a href="{% url 'calendar_tasks:delete_schedule_pattern' pattern.pk %}" class="btn btn-outline-danger btn-sm">
+                                    🗑️
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            <p>No schedule patterns created yet. Add one to customize your family's calendar! 📅</p>
+            <a href="{% url 'calendar_tasks:create_schedule_pattern' %}" class="btn btn-primary">
+                ➕ Add Pattern
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+

@@ -26,12 +26,17 @@
             <label class="form-label">Date of Birth</label>
             {{ form.date_of_birth }}
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Avatar</label>
-            {{ form.avatar }}
-            <div id="avatarPreview" class="text-center mt-1" style="font-size:2.5rem;"></div>
+          <div class="col-12">
+            <label class="form-label" for="id_avatar">Choose Avatar *</label>
+            <div style="position: relative;">
+              {{ form.avatar }}
+              {% if form.avatar.errors %}<div class="text-danger small fw-700 mt-1">{{ form.avatar.errors.0 }}</div>{% endif %}
+            </div>
+            <div id="avatarPreview" class="text-center mt-3" style="font-size:3rem; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px solid #dee2e6;">
+              <small style="font-size: 0.75rem; color: #6c757d; display: block;">Select an avatar above</small>
+            </div>
           </div>
-          <div class="col-md-6">
+          <div class="col-12">
             <label class="form-label">Password *</label>
             {{ form.password }}
             <small class="text-muted fw-700">{{ form.password.help_text }}</small>
@@ -48,9 +53,22 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-  const sel = document.getElementById('avatarSelect');
-  const prev = document.getElementById('avatarPreview');
-  function up() { if(prev && sel) prev.textContent = sel.value; }
-  if(sel) { sel.addEventListener('change', up); up(); }
+  document.addEventListener('DOMContentLoaded', function() {
+    const sel = document.getElementById('id_avatar');
+    const prev = document.getElementById('avatarPreview');
+
+    function updatePreview() {
+      if(sel && sel.value) {
+        prev.innerHTML = '<div style="font-size: 3rem;">' + sel.value + '</div>';
+      } else {
+        prev.innerHTML = '<small style="font-size: 0.75rem; color: #6c757d; display: block;">Select an avatar above</small>';
+      }
+    }
+
+    if(sel) {
+      sel.addEventListener('change', updatePreview);
+      updatePreview();
+    }
+  });
 </script>
 {% endblock %}

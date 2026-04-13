@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Complete Task - ChoreTracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">✅ Complete Task</h2>
+
+                    <div class="alert alert-info mb-4">
+                        <h5>{{ task.title }}</h5>
+                        <p class="mb-0">{{ task.description }}</p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.note.id_for_label }}" class="form-label">{{ form.note.label }}</label>
+                            {{ form.note }}
+                            {% if form.note.errors %}
+                                <div class="invalid-feedback d-block">{{ form.note.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                ✅ Mark as Complete & Send for Approval
+                            </button>
+                            <a href="{% url 'calendar_tasks:calendar_view' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

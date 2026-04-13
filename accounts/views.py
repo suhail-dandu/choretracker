@@ -3,8 +3,15 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils import timezone
+from django.urls import reverse
 from .models import User, Family
-from .forms import FamilyRegistrationForm, JoinFamilyForm, CustomLoginForm, AddChildForm, AdjustPointsForm
+from .forms import (
+    FamilyRegistrationForm, JoinFamilyForm, CustomLoginForm, AddChildForm,
+    AdjustPointsForm, PasswordResetRequestForm, PasswordResetForm
+)
 
 
 def landing(request):
@@ -126,3 +133,95 @@ def adjust_points(request, kid_id):
     else:
         form = AdjustPointsForm()
     return render(request, 'accounts/adjust_points.html', {'form': form, 'kid': kid})
+
+
+# ─── Password Reset Views ───────────────────────────────────────────────────
+
+def password_reset_request(request):
+    """User requests password reset."""
+    if request.user.is_authenticated:
+        return redirect('dashboard:home')
+
+    if request.method == 'POST':
+        form = PasswordResetRequestForm(request.POST)
+        if form.is_valid():
+            username_or_email = form.cleaned_data['username_or_email']
+            user = User.objects.filter(
+                username=username_or_email
+            ).first() or User.objects.filter(email=username_or_email).first()
+
+            if user:
+                # Generate reset token
+                token = user.generate_password_reset_token()
+
+                # Send email with reset link
+                reset_url = request.build_absolute_uri(
+                    reverse('accounts:password_reset', kwargs={'token': token})
+                )
+
+                subject = "🔐 Reset your ChoreTracker password"
+                message = f"""
+Hello {user.first_name or user.username},
+
+We received a request to reset your password. Click the link below to reset it:
+
+{reset_url}
+
+If you didn't request this, you can ignore this email.
+
+This link expires in 24 hours.
+
+Best regards,
+ChoreTracker Team
+                """
+
+                try:
+                    send_mail(
+                        subject,
+                        message,
+                        settings.DEFAULT_FROM_EMAIL,
+                        [user.email] if user.email else [],
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    messages.warning(request, "Could not send email, but token was generated.")
+                    # Still allow token-based reset if email fails
+
+            # Always show success message for security
+            messages.success(
+                request,
+                "If an account with that username/email exists, a password reset link has been sent to the email address. 📧"
+            )
+            return redirect('accounts:login')
+    else:
+        form = PasswordResetRequestForm()
+
+    return render(request, 'accounts/password_reset_request.html', {'form': form})
+
+
+def password_reset(request, token):
+    """Reset password with token."""
+    if request.user.is_authenticated:
+        return redirect('dashboard:home')
+
+    try:
+        user = User.objects.get(password_reset_token=token)
+    except User.DoesNotExist:
+        messages.error(request, "Invalid or expired reset link.")
+        return redirect('accounts:password_reset_request')
+
+    if not user.is_password_reset_token_valid():
+        messages.error(request, "This reset link has expired. Please request a new one.")
+        return redirect('accounts:password_reset_request')
+
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            user.set_password(form.cleaned_data['password1'])
+            user.clear_password_reset_token()
+            messages.success(request, "Your password has been reset successfully! 🎉")
+            return redirect('accounts:login')
+    else:
+        form = PasswordResetForm()
+
+    return render(request, 'accounts/password_reset.html', {'form': form, 'token': token})

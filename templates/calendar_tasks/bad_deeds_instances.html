@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bad Deed Instances - ChoreTracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📋 Bad Deeds Record</h1>
+        <a href="{% url 'calendar_tasks:add_bad_deed_instance' %}" class="btn btn-danger">
+            ➕ Add Bad Deed
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <form method="get" class="d-flex gap-2">
+                <select name="child" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Children</option>
+                    {% for child in children %}
+                        <option value="{{ child.id }}" {% if request.GET.child|stringformat:"s" == child.id|stringformat:"s" %}selected{% endif %}>
+                            {{ child.display_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <form method="get" class="d-flex gap-2">
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Status</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
+                    <option value="removed" {% if request.GET.status == 'removed' %}selected{% endif %}>Removed</option>
+                </select>
+            </form>
+        </div>
+    </div>
+
+    {% if instances %}
+        <div class="row">
+            {% for instance in instances %}
+                <div class="col-md-6 mb-3">
+                    <div class="card {% if instance.status == 'active' %}border-danger{% else %}border-success{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="card-title">{{ instance.title }}</h5>
+                                    <p class="text-muted mb-0">
+                                        <strong>{{ instance.assigned_to.display_name }}</strong>
+                                    </p>
+                                </div>
+                                <span class="badge bg-{% if instance.status == 'active' %}danger{% else %}success{% endif %}">
+                                    {{ instance.get_status_display }}
+                                </span>
+                            </div>
+
+                            {% if instance.description %}
+                                <p class="card-text small">{{ instance.description }}</p>
+                            {% endif %}
+
+                            <div class="alert alert-light mb-3">
+                                <strong>Reason:</strong>
+                                <p class="mb-0">{{ instance.reason }}</p>
+                            </div>
+
+                            <div class="small text-muted mb-3">
+                                <p class="mb-1">
+                                    <strong>📊 Points Deducted:</strong>
+                                    <span class="badge bg-danger">{{ instance.negative_points }}</span>
+                                </p>
+                                <p class="mb-1">
+                                    <strong>📅 Date:</strong> {{ instance.created_date|date:"M d, Y" }}
+                                </p>
+                                <p class="mb-0">
+                                    <strong>👤 By:</strong> {{ instance.created_by.display_name }}
+                                </p>
+                            </div>
+
+                            {% if instance.status == 'active' %}
+                                <div>
+                                    <a href="{% url 'calendar_tasks:remove_bad_deed' instance.pk %}" class="btn btn-outline-success btn-sm">
+                                        ✅ Remove/Reverse
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-success mb-0">
+                                    ✅ Reversed by {{ instance.removed_by.display_name }} on {{ instance.removed_at|date:"M d, Y H:i" }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info text-center">
+            <p>No bad deeds recorded yet. 🎉</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
