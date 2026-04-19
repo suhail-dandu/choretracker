@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import IntegrityError
 from accounts.models import User, Family, Badge
 from accounts.forms import AddChildForm
 
@@ -34,13 +35,27 @@ def add_child(request):
     if request.method == 'POST':
         form = AddChildForm(request.POST)
         if form.is_valid():
-            child = form.save(commit=False)
-            child.family = request.user.family
-            child.role = User.ROLE_CHILD
-            child.set_password(form.cleaned_data['password'])
-            child.save()
-            messages.success(request, f"Added {child.display_name} to the family! 🎉")
-            return redirect('family:overview')
+            try:
+                child = form.save(commit=False)
+                child.family = request.user.family
+                child.role = User.ROLE_CHILD
+                child.set_password(form.cleaned_data['password'])
+                child.save()
+                messages.success(request, f"Added {child.display_name} to the family! 🎉")
+                return redirect('family:overview')
+            except IntegrityError as e:
+                # Catch race conditions or unexpected database errors
+                if 'username' in str(e).lower():
+                    messages.error(request, "Username already exists! Someone may have just created an account with that username. Please try again with a different username.")
+                    form.add_error('username', "This username is already taken.")
+                else:
+                    messages.error(request, f"Error adding child: {str(e)}")
+                # Fall through to re-render the form with error
+        else:
+            # Form validation failed
+            if 'username' in form.errors:
+                # Username errors are already set, they'll display
+                pass
     else:
         form = AddChildForm()
     return render(request, 'family/add_child.html', {'form': form})

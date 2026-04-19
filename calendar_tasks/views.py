@@ -25,12 +25,93 @@ def parent_required(view_func):
     return wrapper
 
 
+def _generate_recurring_tasks_for_month(family, start_date, end_date):
+    """Generate recurring tasks for a month if they don't exist."""
+    from django.db import models
+
+    # Get all active templates for this family
+    templates = RecurringChoreTemplate.objects.filter(
+        family=family,
+        is_active=True,
+        start_date__lte=end_date
+    )
+
+    # Filter by end_date if set
+    templates = templates.filter(
+        models.Q(end_date__isnull=True) | models.Q(end_date__gte=start_date)
+    )
+
+    for template in templates:
+        # Determine dates to create tasks for
+        dates_to_create = []
+
+        if template.frequency == 'daily':
+            current = start_date
+            while current <= end_date:
+                dates_to_create.append(current)
+                current += timedelta(days=1)
+
+        elif template.frequency == 'weekly':
+            if template.days_of_week:
+                target_days = [int(d.strip()) for d in template.days_of_week.split(',')]
+            else:
+                target_days = list(range(7))  # All days
+
+            current = start_date
+            while current <= end_date:
+                if current.weekday() in target_days:
+                    dates_to_create.append(current)
+                current += timedelta(days=1)
+
+        elif template.frequency == 'monthly':
+            day = template.day_of_month or start_date.day
+            current = start_date
+            while current <= end_date:
+                try:
+                    target_date = current.replace(day=day)
+                    if target_date >= start_date and target_date <= end_date:
+                        dates_to_create.append(target_date)
+                except ValueError:
+                    pass
+
+                # Move to next month
+                if current.month == 12:
+                    current = current.replace(year=current.year + 1, month=1, day=1)
+                else:
+                    current = current.replace(month=current.month + 1, day=1)
+
+        # Create tasks for each date
+        for task_date in dates_to_create:
+            # Check if task already exists
+            existing = CalendarTask.objects.filter(
+                recurring_template=template,
+                scheduled_date=task_date,
+                assigned_to=template.assigned_to
+            ).exists()
+
+            if not existing:
+                CalendarTask.objects.create(
+                    family=template.family,
+                    assigned_to=template.assigned_to,
+                    title=template.chore_title,
+                    description=template.chore_description,
+                    points=template.points,
+                    category=template.category,
+                    scheduled_date=task_date,
+                    scheduled_time=template.scheduled_time,
+                    recurring_template=template,
+                    created_by=template.created_by,
+                    status=CalendarTask.STATUS_PENDING
+                )
+
+
 # ─── Calendar Views ───────────────────────────────────────────────────────
 
 @login_required
 def calendar_view(request):
     """Display the calendar for the user."""
     import calendar as cal_module
+    from django.db import models
     user = request.user
 
     # Get month from query params or use current
@@ -47,6 +128,10 @@ def calendar_view(request):
         last_day = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(days=1)
     else:
         last_day = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
+
+    # Auto-generate recurring tasks for this month if they don't exist
+    if user.family:
+        _generate_recurring_tasks_for_month(user.family, first_day, last_day)
 
     # Generate all calendar days (including previous and next month days)
     calendar_days = []
@@ -99,10 +184,15 @@ def calendar_view(request):
     else:
         next_month = current_date.replace(month=current_date.month + 1)
 
+
+    # Convert to list of tuples for easier template iteration
+    all_tasks_items = list(tasks_by_date.items())
+
     ctx = {
         'current_date': current_date,
         'calendar_days': calendar_days,
         'tasks_by_date': tasks_by_date,
+        'all_tasks_items': all_tasks_items,
         'prev_month': prev_month,
         'next_month': next_month,
         'month_str': f"{current_date.year}-{current_date.month:02d}",
@@ -297,34 +387,48 @@ def delete_recurring_template(request, template_id):
 @login_required
 @parent_required
 def create_calendar_task(request):
-    """Parent creates a manual calendar task for a child."""
+    """Parent creates a manual calendar task for one or more children."""
     child = None
 
     if request.method == 'POST':
-        form = CalendarTaskForm(request.POST)
+        form = CalendarTaskForm(request.user.family, request.POST)
         if form.is_valid():
-            # Get child from GET params or POST
-            child_id = request.GET.get('child') or request.POST.get('assigned_to')
-            if not child_id:
-                messages.error(request, "Please select a child to assign this task to.")
-                return redirect('calendar_tasks:calendar_view')
-
-            try:
-                child = User.objects.get(pk=child_id, family=request.user.family, role=User.ROLE_CHILD)
-            except User.DoesNotExist:
-                messages.error(request, "Invalid child selected.")
+            # Get children - support both single and multiple
+            assigned_children = form.cleaned_data.get('assigned_to_multiple', [])
+            
+            # Fallback to single child from GET or POST
+            if not assigned_children:
+                child_id = request.GET.get('child') or request.POST.get('assigned_to')
+                if child_id:
+                    try:
+                        assigned_children = [User.objects.get(pk=child_id, family=request.user.family, role=User.ROLE_CHILD)]
+                    except User.DoesNotExist:
+                        messages.error(request, "Invalid child selected.")
+                        return redirect('calendar_tasks:calendar_view')
+            
+            if not assigned_children:
+                messages.error(request, "Please select at least one child to assign this task to.")
                 return redirect('calendar_tasks:calendar_view')
 
             task = form.save(commit=False)
             task.family = request.user.family
-            task.assigned_to = child
+            task.assigned_to = assigned_children[0]  # Primary assignment for backward compatibility
             task.created_by = request.user
             task.save()
-
-            messages.success(request, f"Task '{task.title}' created for {child.display_name}! 📋")
+            
+            # Create assignments for all selected children
+            from .models import CalendarTaskAssignment
+            for child_user in assigned_children:
+                CalendarTaskAssignment.objects.create(
+                    task=task,
+                    assigned_to=child_user
+                )
+            
+            children_names = ', '.join([c.display_name for c in assigned_children])
+            messages.success(request, f"Task '{task.title}' created for {children_names}! 📋")
             return redirect('calendar_tasks:calendar_view')
     else:
-        form = CalendarTaskForm()
+        form = CalendarTaskForm(request.user.family)
         child_id = request.GET.get('child')
         if child_id:
             try:

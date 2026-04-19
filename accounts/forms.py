@@ -35,8 +35,8 @@ class FamilyRegistrationForm(forms.Form):
     )
 
     def clean_username(self):
-        username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
+        username = self.cleaned_data.get('username', '').strip()
+        if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError("This username is already taken.")
         return username
 
@@ -84,8 +84,8 @@ class JoinFamilyForm(forms.Form):
             raise forms.ValidationError("Invalid invite code. Ask your parent!")
 
     def clean_username(self):
-        username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
+        username = self.cleaned_data.get('username', '').strip()
+        if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError("This username is already taken.")
         return username
 
@@ -137,14 +137,38 @@ class AddChildForm(forms.ModelForm):
         self.fields['avatar'].choices = User.AVATAR_CHOICES
 
     def clean_username(self):
-        username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
-            raise forms.ValidationError("This username is already taken.")
+        username = self.cleaned_data.get('username', '').strip()
+        if not username:
+            raise forms.ValidationError("Username is required.")
+
+        # Check for existing username
+        existing = User.objects.filter(username__iexact=username).exists()
+        if existing:
+            raise forms.ValidationError("This username is already taken. Please choose a different one.")
+
         return username
+
+    def clean(self):
+        """Perform additional form-level validation."""
+        cleaned_data = super().clean()
+
+        # If there are errors from field cleaning, don't proceed
+        if self.errors:
+            return cleaned_data
+
+        username = cleaned_data.get('username', '').strip()
+
+        # Double-check username is unique before saving (catch race conditions)
+        if username and User.objects.filter(username__iexact=username).exists():
+            self.add_error('username', "This username is already taken. Please choose a different one.")
+
+        return cleaned_data
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.avatar = self.cleaned_data.get('avatar', '🦁')
+        # Strip whitespace from username
+        user.username = user.username.strip()
         if commit:
             user.save()
         return user

@@ -56,6 +56,14 @@ class RecurringChoreTemplateForm(forms.ModelForm):
 
 class CalendarTaskForm(forms.ModelForm):
     """Form for creating/editing calendar tasks."""
+    
+    # New field for multiple children
+    assigned_to_multiple = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Assign to children"
+    )
 
     class Meta:
         model = CalendarTask
@@ -69,6 +77,13 @@ class CalendarTaskForm(forms.ModelForm):
             'scheduled_time': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
             'due_time': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
         }
+    
+    def __init__(self, family=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if family:
+            self.fields['assigned_to_multiple'].queryset = User.objects.filter(
+                family=family, role=User.ROLE_CHILD
+            )
 
 
 class CalendarTaskCompleteForm(forms.Form):

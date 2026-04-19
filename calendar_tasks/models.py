@@ -260,6 +260,78 @@ class CalendarTask(models.Model):
         self.save(update_fields=['status', 'approved_by', 'rejection_reason', 'updated_at'])
 
 
+class CalendarTaskAssignment(models.Model):
+    """Model to track multiple children assigned to a single task."""
+    task = models.ForeignKey(CalendarTask, on_delete=models.CASCADE, related_name='child_assignments')
+    assigned_to = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='task_assignments',
+        limit_choices_to={'role': 'child'}
+    )
+
+    # Status tracking per child
+    STATUS_PENDING = 'pending'
+    STATUS_COMPLETED = 'completed'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_COMPLETED, 'Completed - Awaiting Approval'),
+        (STATUS_APPROVED, 'Approved ✅'),
+        (STATUS_REJECTED, 'Rejected ❌'),
+    ]
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_child_tasks')
+    rejection_reason = models.CharField(max_length=200, blank=True)
+    note = models.TextField(blank=True, help_text="Note from kid when marking as done")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('task', 'assigned_to')
+        indexes = [
+            models.Index(fields=['assigned_to', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.task.title} → {self.assigned_to.display_name}"
+
+    def mark_completed(self, note=''):
+        """Mark task as completed for this child."""
+        self.status = self.STATUS_COMPLETED
+        self.completed_at = timezone.now()
+        self.note = note
+        self.save(update_fields=['status', 'completed_at', 'note', 'updated_at'])
+
+    def approve(self, approved_by):
+        """Approve the task and award points."""
+        self.status = self.STATUS_APPROVED
+        self.approved_at = timezone.now()
+        self.approved_by = approved_by
+        self.save(update_fields=['status', 'approved_at', 'approved_by', 'updated_at'])
+
+        # Award points to the child
+        self.assigned_to.add_points(
+            self.task.points,
+            reason=f"Calendar task completed: {self.task.title}",
+            added_by=approved_by
+        )
+
+    def reject(self, approved_by, reason=''):
+        """Reject the task."""
+        self.status = self.STATUS_REJECTED
+        self.approved_by = approved_by
+        self.rejection_reason = reason
+        self.save(update_fields=['status', 'approved_by', 'rejection_reason', 'updated_at'])
+
+
+
+
+
 class BadDeed(models.Model):
     """Negative behavior tracking - parents directly deduct points."""
     CATEGORY_CHOICES = [

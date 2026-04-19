@@ -51,32 +51,41 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% with current_date|date:"W" as week_number %}
-                        {% for day in calendar_days %}
-                            {% if forloop.counter0|divisibleby:7 %}
-                                <tr>
-                            {% endif %}
+                    {% for day in calendar_days %}
+                        {% if forloop.counter0|divisibleby:7 %}
+                            <tr>
+                        {% endif %}
 
-                            <td style="height: 120px; vertical-align: top;" class="{% if day.month != current_date.month %}text-muted bg-light{% endif %}">
-                                <div class="fw-bold mb-2">{{ day.day }}</div>
-                                {% with tasks_by_date|get_item:day.isoformat as day_tasks %}
-                                    {% if day_tasks %}
+                        <td style="height: 120px; vertical-align: top;" class="{% if day.month != current_date.month %}text-muted bg-light{% endif %}">
+                            <div class="fw-bold mb-2">
+                                <a href="{% url 'calendar_tasks:calendar_day_detail' day.year day.month day.day %}" style="color: inherit; text-decoration: none;">
+                                    {{ day.day }}
+                                </a>
+                            </div>
+                            <!-- Tasks for this day -->
+                            {% for date_str, task_list in all_tasks_items %}
+                                {% if date_str == day|date:"Y-m-d" %}
+                                    {% if task_list %}
                                         <div class="small">
-                                            {% for task in day_tasks %}
-                                                <div class="badge bg-{% if task.status == 'approved' %}success{% elif task.status == 'completed' %}warning{% elif task.status == 'rejected' %}danger{% else %}info{% endif %} mb-1 d-block text-truncate">
-                                                    {{ task.title|truncatewords:3 }}
-                                                </div>
-                            {% endfor %}
+                                            {% for task in task_list %}
+                                                <a href="{% url 'calendar_tasks:calendar_day_detail' day.year day.month day.day %}" style="text-decoration: none;">
+                                                    <div class="badge bg-{% if task.status == 'approved' %}success{% elif task.status == 'completed' %}warning{% elif task.status == 'rejected' %}danger{% else %}info{% endif %} mb-1 d-block text-truncate" title="{{ task.title }} - {{ task.scheduled_time|time:'H:i' }}{% if user.is_parent %} ({{ task.assigned_to.display_name }}){% endif %}">
+                                                        <span>{{ task.scheduled_time|time:"H:i" }} </span>
+                                                        <span>{{ task.title|truncatewords:2 }}</span>
+                                                        {% if user.is_parent %}<span> ({{ task.assigned_to.first_name }})</span>{% endif %}
+                                                    </div>
+                                                </a>
+                                            {% endfor %}
                                         </div>
                                     {% endif %}
-                                {% endwith %}
-                            </td>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
 
-                            {% if forloop.counter|divisibleby:7 %}
-                                </tr>
-                            {% endif %}
-                        {% endfor %}
-                    {% endwith %}
+                        {% if forloop.counter|divisibleby:7 %}
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
