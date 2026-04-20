@@ -83,13 +83,42 @@ def assign_chore(request, chore_id):
     if request.method == 'POST':
         form = AssignChoreForm(request.user.family, request.POST)
         if form.is_valid():
-            assignment = form.save(commit=False)
-            assignment.chore = chore
-            assignment.assigned_by = request.user
-            assignment.save()
-            kid = assignment.assigned_to
-            messages.success(request, f"Assigned '{chore.title}' to {kid.display_name}! 📋")
-            return redirect('dashboard:home')
+            assigned_children = list(form.cleaned_data['assigned_to_multiple'])
+            due_date = form.cleaned_data['due_date']
+
+            from calendar_tasks.models import CalendarTask, CalendarTaskAssignment
+
+            # Create ONE shared CalendarTask for all children
+            task = CalendarTask.objects.create(
+                family=chore.family,
+                assigned_to=assigned_children[0],  # primary for backward compat
+                title=chore.title,
+                description=chore.description,
+                points=chore.points,
+                category=chore.category,
+                scheduled_date=due_date.date(),
+                scheduled_time=due_date.time(),
+                created_by=request.user,
+                status=CalendarTask.STATUS_PENDING,
+            )
+
+            # Create per-child ChoreAssignment + CalendarTaskAssignment
+            for child in assigned_children:
+                assignment = ChoreAssignment.objects.create(
+                    chore=chore,
+                    assigned_to=child,
+                    assigned_by=request.user,
+                    due_date=due_date,
+                )
+                CalendarTaskAssignment.objects.create(
+                    task=task,
+                    assigned_to=child,
+                    chore_assignment=assignment,
+                )
+
+            children_names = ', '.join([c.display_name for c in assigned_children])
+            messages.success(request, f"Assigned '{chore.title}' to {children_names}! 📋")
+            return redirect('calendar_tasks:calendar_view')
     else:
         form = AssignChoreForm(request.user.family)
     return render(request, 'chores/assign_chore.html', {'form': form, 'chore': chore})

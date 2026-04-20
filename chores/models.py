@@ -104,6 +104,24 @@ class ChoreAssignment(models.Model):
         self.note = note
         self.save(update_fields=['status', 'completed_at', 'note'])
 
+        # Sync to calendar assignments if present
+        try:
+            # Import here to avoid circular import at module import time
+            from calendar_tasks.models import CalendarTaskAssignment
+            for cal in getattr(self, 'calendar_assignments').all():
+                # mark calendar assignment as completed for the child
+                try:
+                    cal.mark_completed(note=note)
+                except Exception:
+                    # Fallback: update fields directly
+                    cal.status = CalendarTaskAssignment.STATUS_COMPLETED
+                    cal.completed_at = timezone.now()
+                    cal.note = note
+                    cal.save(update_fields=['status', 'completed_at', 'note'])
+        except Exception:
+            # If calendar integration unavailable, ignore
+            pass
+
     def approve(self, approved_by):
         """Approve the assignment and award points."""
         self.status = self.STATUS_APPROVED
@@ -118,6 +136,16 @@ class ChoreAssignment(models.Model):
         )
         # Check for badges
         self._check_badges()
+        # Sync approval status to linked calendar assignments without re-awarding points
+        try:
+            from calendar_tasks.models import CalendarTaskAssignment
+            for cal in getattr(self, 'calendar_assignments').all():
+                cal.status = CalendarTaskAssignment.STATUS_APPROVED
+                cal.approved_by = approved_by
+                cal.approved_at = self.approved_at
+                cal.save(update_fields=['status', 'approved_by', 'approved_at'])
+        except Exception:
+            pass
 
     def reject(self, approved_by, reason=''):
         self.status = self.STATUS_REJECTED

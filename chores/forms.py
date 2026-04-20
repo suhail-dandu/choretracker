@@ -21,28 +21,21 @@ class ChoreForm(forms.ModelForm):
         self.fields['points'].help_text = "Positive for rewards, negative for penalties"
 
 
-class AssignChoreForm(forms.ModelForm):
-    class Meta:
-        model = ChoreAssignment
-        fields = ['assigned_to', 'due_date']
-        widgets = {
-            'assigned_to': forms.Select(attrs={'class': 'form-select form-select-lg'}),
-            'due_date': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-        }
+class AssignChoreForm(forms.Form):
+    assigned_to_multiple = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        label="Assign to"
+    )
+    due_date = forms.DateTimeField(
+        widget=forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+        label="Due Date & Time"
+    )
 
     def __init__(self, family, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['assigned_to'].queryset = User.objects.filter(
-            family=family, role=User.ROLE_CHILD
-        )
-        self.fields['assigned_to'].label = "Assign to"
-
-    def clean_due_date(self):
-        from django.utils import timezone
-        due = self.cleaned_data['due_date']
-        if due < timezone.now():
-            raise forms.ValidationError("Due date must be in the future.")
-        return due
+        self.fields['assigned_to_multiple'].queryset = User.objects.filter(family=family, role=User.ROLE_CHILD)
 
 
 class CompleteChoreForm(forms.Form):

@@ -69,7 +69,7 @@
                                         <div class="small">
                                             {% for task in task_list %}
                                                 <a href="{% url 'calendar_tasks:calendar_day_detail' day.year day.month day.day %}" style="text-decoration: none;">
-                                                    <div class="badge bg-{% if task.status == 'approved' %}success{% elif task.status == 'completed' %}warning{% elif task.status == 'rejected' %}danger{% else %}info{% endif %} mb-1 d-block text-truncate" title="{% if user.is_parent %}{{ task.get_assigned_children_names }} - {% endif %}{{ task.title }} at {{ task.scheduled_time|time:'H:i' }}">
+                                                    <div class="badge bg-{% if task.display_status == 'approved' %}success{% elif task.display_status == 'completed' %}warning{% elif task.display_status == 'rejected' %}danger{% else %}info{% endif %} mb-1 d-block text-truncate" title="{% if user.is_parent %}{{ task.get_assigned_children_names }} - {% endif %}{{ task.title }} at {{ task.scheduled_time|time:'H:i' }}">
                                                         <span>{{ task.scheduled_time|time:"H:i" }}</span>
                                                         <span>{{ task.title|truncatewords:2 }}</span>
                                                         {% if user.is_parent %}<span class="text-truncate">({% firstof task.get_assigned_children_names task.assigned_to.first_name %})</span>{% endif %}

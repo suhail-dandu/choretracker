@@ -4,12 +4,11 @@ from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import datetime, timedelta
-from .models import CalendarTask, RecurringChoreTemplate, SchedulePattern, BadDeed, BadDeedInstance
+from .models import CalendarTask, RecurringChoreTemplate, SchedulePattern, BadDeed, BadDeedInstance, CalendarTaskAssignment
 from .forms import (
     CalendarTaskForm, CalendarTaskCompleteForm, CalendarTaskRejectForm,
     RecurringChoreTemplateForm, SchedulePatternForm, BadDeedForm, BadDeedInstanceForm
 )
-from .tasks import send_approval_notification
 from accounts.models import User
 
 
@@ -27,22 +26,17 @@ def parent_required(view_func):
 
 def _generate_recurring_tasks_for_month(family, start_date, end_date):
     """Generate recurring tasks for a month if they don't exist."""
-    from django.db import models
+    from django.db import models as db_models
 
-    # Get all active templates for this family
     templates = RecurringChoreTemplate.objects.filter(
         family=family,
         is_active=True,
         start_date__lte=end_date
-    )
-
-    # Filter by end_date if set
-    templates = templates.filter(
-        models.Q(end_date__isnull=True) | models.Q(end_date__gte=start_date)
+    ).filter(
+        db_models.Q(end_date__isnull=True) | db_models.Q(end_date__gte=start_date)
     )
 
     for template in templates:
-        # Determine dates to create tasks for
         dates_to_create = []
 
         if template.frequency == 'daily':
@@ -55,7 +49,7 @@ def _generate_recurring_tasks_for_month(family, start_date, end_date):
             if template.days_of_week:
                 target_days = [int(d.strip()) for d in template.days_of_week.split(',')]
             else:
-                target_days = list(range(7))  # All days
+                target_days = list(range(7))
 
             current = start_date
             while current <= end_date:
@@ -69,28 +63,25 @@ def _generate_recurring_tasks_for_month(family, start_date, end_date):
             while current <= end_date:
                 try:
                     target_date = current.replace(day=day)
-                    if target_date >= start_date and target_date <= end_date:
+                    if start_date <= target_date <= end_date:
                         dates_to_create.append(target_date)
                 except ValueError:
                     pass
 
-                # Move to next month
                 if current.month == 12:
                     current = current.replace(year=current.year + 1, month=1, day=1)
                 else:
                     current = current.replace(month=current.month + 1, day=1)
 
-        # Create tasks for each date
         for task_date in dates_to_create:
-            # Check if task already exists
-            existing = CalendarTask.objects.filter(
+            existing_task = CalendarTask.objects.filter(
                 recurring_template=template,
                 scheduled_date=task_date,
                 assigned_to=template.assigned_to
-            ).exists()
+            ).first()
 
-            if not existing:
-                CalendarTask.objects.create(
+            if not existing_task:
+                existing_task = CalendarTask.objects.create(
                     family=template.family,
                     assigned_to=template.assigned_to,
                     title=template.chore_title,
@@ -103,6 +94,11 @@ def _generate_recurring_tasks_for_month(family, start_date, end_date):
                     created_by=template.created_by,
                     status=CalendarTask.STATUS_PENDING
                 )
+            # Ensure the assignment exists (handles both new and pre-existing tasks)
+            CalendarTaskAssignment.objects.get_or_create(
+                task=existing_task,
+                assigned_to=template.assigned_to
+            )
 
 
 # ─── Calendar Views ───────────────────────────────────────────────────────
@@ -111,10 +107,8 @@ def _generate_recurring_tasks_for_month(family, start_date, end_date):
 def calendar_view(request):
     """Display the calendar for the user."""
     import calendar as cal_module
-    from django.db import models
     user = request.user
 
-    # Get month from query params or use current
     month_str = request.GET.get('month')
     if month_str:
         year, month = map(int, month_str.split('-'))
@@ -122,23 +116,19 @@ def calendar_view(request):
     else:
         current_date = timezone.now().date()
 
-    # Get tasks for the month
     first_day = current_date.replace(day=1)
     if current_date.month == 12:
         last_day = current_date.replace(year=current_date.year + 1, month=1, day=1) - timedelta(days=1)
     else:
         last_day = current_date.replace(month=current_date.month + 1, day=1) - timedelta(days=1)
 
-    # Auto-generate recurring tasks for this month if they don't exist
     if user.family:
         _generate_recurring_tasks_for_month(user.family, first_day, last_day)
 
-    # Generate all calendar days (including previous and next month days)
+    # Build calendar day grid
     calendar_days = []
-    # Get the calendar for the month (0=Monday, 6=Sunday)
     month_calendar = cal_module.monthcalendar(current_date.year, current_date.month)
 
-    # Add days from previous month to fill the first week
     if month_calendar[0][0] != 1:
         prev_month_date = first_day - timedelta(days=1)
         last_day_prev_month = cal_module.monthrange(prev_month_date.year, prev_month_date.month)[1]
@@ -146,41 +136,56 @@ def calendar_view(request):
         for day in range(start_day, last_day_prev_month + 1):
             calendar_days.append(prev_month_date.replace(day=day))
 
-    # Add days from current month
     for week in month_calendar:
         for day_num in week:
-            if day_num != 0:  # 0 means days from other months
+            if day_num != 0:
                 calendar_days.append(current_date.replace(day=day_num))
 
-    # Add days from next month to fill the last week
-    remaining_days = 42 - len(calendar_days)  # 6 weeks * 7 days
+    remaining_days = 42 - len(calendar_days)
     if remaining_days > 0:
+        if current_date.month == 12:
+            next_month_date = current_date.replace(year=current_date.year + 1, month=1)
+        else:
+            next_month_date = current_date.replace(month=current_date.month + 1)
         for day in range(1, remaining_days + 1):
-            if current_date.month == 12:
-                next_month_date = current_date.replace(year=current_date.year + 1, month=1)
-            else:
-                next_month_date = current_date.replace(month=current_date.month + 1)
             calendar_days.append(next_month_date.replace(day=day))
 
-    # Get tasks based on user role
     if user.is_child:
-        # For kids, get tasks assigned to them via CalendarTaskAssignment
-        from .models import CalendarTaskAssignment
-        assignment_ids = CalendarTaskAssignment.objects.filter(
+        # Build map from existing CalendarTaskAssignment records
+        kid_assignments = {
+            ka.task_id: ka
+            for ka in CalendarTaskAssignment.objects.filter(
+                assigned_to=user,
+                task__family=user.family,
+                task__scheduled_date__range=[first_day, last_day]
+            ).select_related('task')
+        }
+
+        # Also pick up tasks directly assigned to this kid that have no assignment record yet
+        direct_tasks = CalendarTask.objects.filter(
+            family=user.family,
             assigned_to=user,
-            task__family=user.family,
-            task__scheduled_date__range=[first_day, last_day]
-        ).values_list('task_id', flat=True)
-        tasks = CalendarTask.objects.filter(id__in=assignment_ids)
+            scheduled_date__range=[first_day, last_day]
+        ).exclude(id__in=kid_assignments.keys())
+
+        for task in direct_tasks:
+            assignment, _ = CalendarTaskAssignment.objects.get_or_create(
+                task=task, assigned_to=user
+            )
+            kid_assignments[task.id] = assignment
+
+        tasks = list(CalendarTask.objects.filter(id__in=kid_assignments.keys()))
+        # Annotate each task with this child's specific status
+        for task in tasks:
+            task.display_status = kid_assignments[task.id].status
     else:
-        # For parents, get all family tasks
-        tasks = CalendarTask.objects.filter(
+        tasks = list(CalendarTask.objects.filter(
             family=user.family,
             scheduled_date__range=[first_day, last_day]
-        )
+        ))
+        for task in tasks:
+            task.display_status = task.status
 
-
-    # Group tasks by date
     tasks_by_date = {}
     for task in tasks:
         date_key = task.scheduled_date.isoformat()
@@ -188,21 +193,17 @@ def calendar_view(request):
             tasks_by_date[date_key] = []
         tasks_by_date[date_key].append(task)
 
-    prev_month = (current_date.replace(day=1) - timedelta(days=1)).replace(day=1)
+    prev_month = (first_day - timedelta(days=1)).replace(day=1)
     if current_date.month == 12:
         next_month = current_date.replace(year=current_date.year + 1, month=1)
     else:
         next_month = current_date.replace(month=current_date.month + 1)
 
-
-    # Convert to list of tuples for easier template iteration
-    all_tasks_items = list(tasks_by_date.items())
-
     ctx = {
         'current_date': current_date,
         'calendar_days': calendar_days,
         'tasks_by_date': tasks_by_date,
-        'all_tasks_items': all_tasks_items,
+        'all_tasks_items': list(tasks_by_date.items()),
         'prev_month': prev_month,
         'next_month': next_month,
         'month_str': f"{current_date.year}-{current_date.month:02d}",
@@ -217,66 +218,95 @@ def calendar_day_detail(request, year, month, day):
     date = datetime(int(year), int(month), int(day)).date()
 
     if user.is_child:
-        # For kids, get tasks assigned to them via CalendarTaskAssignment
-        from .models import CalendarTaskAssignment
-        assignment_ids = CalendarTaskAssignment.objects.filter(
+        # Build assignment map (existing records)
+        existing_map = {
+            ka.task_id: ka
+            for ka in CalendarTaskAssignment.objects.filter(
+                assigned_to=user,
+                task__family=user.family,
+                task__scheduled_date=date
+            ).select_related('task')
+        }
+
+        # Also pick up tasks directly assigned to this kid with no assignment record
+        direct_tasks = CalendarTask.objects.filter(
+            family=user.family,
             assigned_to=user,
-            task__family=user.family,
-            task__scheduled_date=date
-        ).values_list('task_id', flat=True)
-        tasks = CalendarTask.objects.filter(id__in=assignment_ids)
+            scheduled_date=date
+        ).exclude(id__in=existing_map.keys())
+
+        for task in direct_tasks:
+            assignment, _ = CalendarTaskAssignment.objects.get_or_create(
+                task=task, assigned_to=user
+            )
+            existing_map[task.id] = assignment
+
+        # Re-query to get properly ordered assignments with all fields
+        assignments = CalendarTaskAssignment.objects.filter(
+            assigned_to=user,
+            task_id__in=existing_map.keys()
+        ).select_related('task').order_by('task__scheduled_time')
+
+        ctx = {
+            'date': date,
+            'assignments': assignments,
+            'is_today': date == timezone.now().date(),
+        }
     else:
-        # For parents, get all family tasks for the day
+        # For parents: show all family tasks with assigned children info
         tasks = CalendarTask.objects.filter(
             family=user.family,
             scheduled_date=date
-        )
+        ).prefetch_related('child_assignments__assigned_to').order_by('scheduled_time')
 
+        ctx = {
+            'date': date,
+            'tasks': tasks,
+            'is_today': date == timezone.now().date(),
+        }
 
-    ctx = {
-        'date': date,
-        'tasks': tasks,
-        'is_today': date == timezone.now().date(),
-    }
     return render(request, 'calendar_tasks/calendar_day_detail.html', ctx)
 
 
 @login_required
 def task_complete(request, task_id):
     """Kid marks a calendar task as completed."""
-    from .models import CalendarTaskAssignment
+    # Verify the task belongs to this kid's family
+    task = get_object_or_404(CalendarTask, pk=task_id, family=request.user.family)
 
-    # Check if kid is assigned to this task via CalendarTaskAssignment
-    assignment = CalendarTaskAssignment.objects.filter(
-        task_id=task_id,
-        assigned_to=request.user,
-        status=CalendarTaskAssignment.STATUS_PENDING
-    ).first()
+    # Always get or create the CalendarTaskAssignment — this ensures the parent
+    # approval queue (which only queries CalendarTaskAssignment) always sees it.
+    assignment, _ = CalendarTaskAssignment.objects.get_or_create(
+        task=task,
+        assigned_to=request.user
+    )
 
-    if not assignment:
-        # Fallback to old assignment method
-        task = get_object_or_404(
-            CalendarTask,
-            pk=task_id,
-            assigned_to=request.user,
-            status=CalendarTask.STATUS_PENDING
-        )
-    else:
-        task = assignment.task
+    # If already processed, don't show the form again
+    if assignment.status != CalendarTaskAssignment.STATUS_PENDING:
+        messages.info(request, f"'{task.title}' has already been submitted or approved.")
+        return redirect('calendar_tasks:calendar_view')
 
     if request.method == 'POST':
         form = CalendarTaskCompleteForm(request.POST)
         if form.is_valid():
             note = form.cleaned_data.get('note', '')
 
-            # If assigned via CalendarTaskAssignment, mark that assignment as complete
-            if assignment:
-                assignment.mark_completed(note=note)
-            else:
-                task.mark_completed(note=note)
+            # Mark the assignment completed — this is what parents query for approvals
+            assignment.mark_completed(note=note)
 
-            # Send notification to parents
-            send_approval_notification.delay(task.id)
+            # Also sync the linked ChoreAssignment if present
+            if assignment.chore_assignment and assignment.chore_assignment.status == 'pending':
+                ca = assignment.chore_assignment
+                ca.status = 'completed'
+                ca.completed_at = timezone.now()
+                ca.note = note
+                ca.save(update_fields=['status', 'completed_at', 'note'])
+
+            try:
+                from .tasks import send_approval_notification
+                send_approval_notification.delay(task.id)
+            except Exception:
+                pass
 
             messages.success(request, f"Great job! '{task.title}' submitted for approval! 🌟")
             return redirect('calendar_tasks:calendar_view')
@@ -289,34 +319,90 @@ def task_complete(request, task_id):
 @login_required
 @parent_required
 def pending_task_approvals(request):
-    """Parent sees all calendar tasks awaiting approval."""
-    from .models import CalendarTaskAssignment
-
-    # Get tasks that are awaiting approval via CalendarTask
-    awaiting_tasks = CalendarTask.objects.filter(
-        family=request.user.family,
-        status=CalendarTask.STATUS_COMPLETED
-    ).select_related('assigned_to').order_by('-completed_at')
-
-    # Get assignments that are awaiting approval
+    """Parent sees all calendar task assignments awaiting approval."""
     awaiting_assignments = CalendarTaskAssignment.objects.filter(
         task__family=request.user.family,
         status=CalendarTaskAssignment.STATUS_COMPLETED
     ).select_related('task', 'assigned_to').order_by('-completed_at')
 
     ctx = {
-        'awaiting': awaiting_tasks,
-        'awaiting_assignments': awaiting_assignments
+        'awaiting_assignments': awaiting_assignments,
     }
     return render(request, 'calendar_tasks/pending_task_approvals.html', ctx)
 
 
 @login_required
 @parent_required
-def task_approve(request, task_id):
-    """Parent approves a calendar task."""
-    from .models import CalendarTaskAssignment
+def assignment_approve(request, assignment_id):
+    """Parent approves a single child's task completion."""
+    assignment = get_object_or_404(
+        CalendarTaskAssignment,
+        pk=assignment_id,
+        task__family=request.user.family,
+        status=CalendarTaskAssignment.STATUS_COMPLETED
+    )
 
+    if request.method == 'POST':
+        chore_assign = assignment.chore_assignment
+        if chore_assign and chore_assign.status == 'completed':
+            # Kid completed via chore route — ChoreAssignment.approve() handles points + badges + sync
+            chore_assign.approve(approved_by=request.user)
+        else:
+            # Kid completed via calendar route — approve CalendarTaskAssignment directly
+            assignment.approve(approved_by=request.user)
+            # Sync linked ChoreAssignment to approved if present
+            if chore_assign and chore_assign.status not in ('approved', 'rejected'):
+                chore_assign.status = 'approved'
+                chore_assign.approved_by = request.user
+                chore_assign.approved_at = timezone.now()
+                chore_assign.points_awarded = assignment.task.points
+                chore_assign.save(update_fields=['status', 'approved_by', 'approved_at', 'points_awarded'])
+
+        messages.success(request, f"Approved! {assignment.assigned_to.display_name} earned {assignment.task.points} points! 🎉")
+        return redirect('calendar_tasks:pending_task_approvals')
+
+    return render(request, 'calendar_tasks/assignment_approve.html', {'assignment': assignment})
+
+
+@login_required
+@parent_required
+def assignment_reject(request, assignment_id):
+    """Parent rejects a single child's task completion."""
+    assignment = get_object_or_404(
+        CalendarTaskAssignment,
+        pk=assignment_id,
+        task__family=request.user.family,
+        status=CalendarTaskAssignment.STATUS_COMPLETED
+    )
+
+    if request.method == 'POST':
+        form = CalendarTaskRejectForm(request.POST)
+        if form.is_valid():
+            reason = form.cleaned_data.get('reason', '')
+            chore_assign = assignment.chore_assignment
+
+            if chore_assign and chore_assign.status == 'completed':
+                chore_assign.reject(approved_by=request.user, reason=reason)
+            else:
+                assignment.reject(approved_by=request.user, reason=reason)
+                if chore_assign and chore_assign.status not in ('approved', 'rejected'):
+                    chore_assign.status = 'rejected'
+                    chore_assign.approved_by = request.user
+                    chore_assign.rejection_reason = reason
+                    chore_assign.save(update_fields=['status', 'approved_by', 'rejection_reason'])
+
+            messages.warning(request, f"Task rejected for {assignment.assigned_to.display_name}.")
+            return redirect('calendar_tasks:pending_task_approvals')
+    else:
+        form = CalendarTaskRejectForm()
+
+    return render(request, 'calendar_tasks/assignment_reject.html', {'assignment': assignment, 'form': form})
+
+
+@login_required
+@parent_required
+def task_approve(request, task_id):
+    """Parent approves a calendar task (legacy: tasks without per-child assignments)."""
     task = get_object_or_404(
         CalendarTask,
         pk=task_id,
@@ -326,17 +412,6 @@ def task_approve(request, task_id):
 
     if request.method == 'POST':
         task.approve(approved_by=request.user)
-
-        # Also approve all pending assignments for this task
-        CalendarTaskAssignment.objects.filter(
-            task=task,
-            status=CalendarTaskAssignment.STATUS_COMPLETED
-        ).update(
-            status=CalendarTaskAssignment.STATUS_APPROVED,
-            approved_by=request.user,
-            approved_at=timezone.now()
-        )
-
         messages.success(request, f"Approved! {task.assigned_to.display_name} earned {task.points} points! 🎉")
         return redirect('calendar_tasks:pending_task_approvals')
 
@@ -346,7 +421,7 @@ def task_approve(request, task_id):
 @login_required
 @parent_required
 def task_reject(request, task_id):
-    """Parent rejects a calendar task."""
+    """Parent rejects a calendar task (legacy)."""
     task = get_object_or_404(
         CalendarTask,
         pk=task_id,
@@ -374,36 +449,31 @@ def task_reject(request, task_id):
 @login_required
 @parent_required
 def recurring_templates_list(request):
-    """List all recurring chore templates for the family."""
     templates = RecurringChoreTemplate.objects.filter(
         family=request.user.family
     ).select_related('assigned_to', 'created_by')
 
-    ctx = {'templates': templates}
-    return render(request, 'calendar_tasks/recurring_templates_list.html', ctx)
+    return render(request, 'calendar_tasks/recurring_templates_list.html', {'templates': templates})
 
 
 @login_required
 @parent_required
 def create_recurring_template(request):
-    """Create a new recurring chore template."""
     if request.method == 'POST':
         form = RecurringChoreTemplateForm(request.user.family, request.POST)
         if form.is_valid():
-            # Get multiple children if provided, otherwise use single assignment
-            assigned_children = form.cleaned_data.get('assigned_to_multiple', [])
+            assigned_children = list(form.cleaned_data.get('assigned_to_multiple', []))
             if not assigned_children:
                 assigned_to = form.cleaned_data.get('assigned_to')
                 if assigned_to:
                     assigned_children = [assigned_to]
 
             if not assigned_children:
-                messages.error(request, "Please select at least one child to assign this recurring chore to.")
+                messages.error(request, "Please select at least one child.")
                 return redirect('calendar_tasks:create_recurring_template')
 
-            # Create a template for each child
             for child in assigned_children:
-                template = RecurringChoreTemplate(
+                RecurringChoreTemplate.objects.create(
                     family=request.user.family,
                     chore_title=form.cleaned_data['chore_title'],
                     chore_description=form.cleaned_data.get('chore_description', ''),
@@ -418,7 +488,6 @@ def create_recurring_template(request):
                     end_date=form.cleaned_data.get('end_date'),
                     created_by=request.user
                 )
-                template.save()
 
             children_names = ', '.join([c.display_name for c in assigned_children])
             messages.success(request, f"Recurring chore '{form.cleaned_data['chore_title']}' created for {children_names}! 🔄")
@@ -426,19 +495,13 @@ def create_recurring_template(request):
     else:
         form = RecurringChoreTemplateForm(request.user.family)
 
-    ctx = {'form': form, 'action': 'Create'}
-    return render(request, 'calendar_tasks/recurring_template_form.html', ctx)
+    return render(request, 'calendar_tasks/recurring_template_form.html', {'form': form, 'action': 'Create'})
 
 
 @login_required
 @parent_required
 def edit_recurring_template(request, template_id):
-    """Edit a recurring chore template."""
-    template = get_object_or_404(
-        RecurringChoreTemplate,
-        pk=template_id,
-        family=request.user.family
-    )
+    template = get_object_or_404(RecurringChoreTemplate, pk=template_id, family=request.user.family)
 
     if request.method == 'POST':
         form = RecurringChoreTemplateForm(request.user.family, request.POST, instance=template)
@@ -449,19 +512,13 @@ def edit_recurring_template(request, template_id):
     else:
         form = RecurringChoreTemplateForm(request.user.family, instance=template)
 
-    ctx = {'form': form, 'action': 'Edit', 'template': template}
-    return render(request, 'calendar_tasks/recurring_template_form.html', ctx)
+    return render(request, 'calendar_tasks/recurring_template_form.html', {'form': form, 'action': 'Edit', 'template': template})
 
 
 @login_required
 @parent_required
 def delete_recurring_template(request, template_id):
-    """Deactivate a recurring chore template."""
-    template = get_object_or_404(
-        RecurringChoreTemplate,
-        pk=template_id,
-        family=request.user.family
-    )
+    template = get_object_or_404(RecurringChoreTemplate, pk=template_id, family=request.user.family)
 
     if request.method == 'POST':
         template.is_active = False
@@ -483,10 +540,8 @@ def create_calendar_task(request):
     if request.method == 'POST':
         form = CalendarTaskForm(request.user.family, request.POST)
         if form.is_valid():
-            # Get children - support both single and multiple
-            assigned_children = form.cleaned_data.get('assigned_to_multiple', [])
-            
-            # Fallback to single child from GET or POST
+            assigned_children = list(form.cleaned_data.get('assigned_to_multiple', []))
+
             if not assigned_children:
                 child_id = request.GET.get('child') or request.POST.get('assigned_to')
                 if child_id:
@@ -495,25 +550,23 @@ def create_calendar_task(request):
                     except User.DoesNotExist:
                         messages.error(request, "Invalid child selected.")
                         return redirect('calendar_tasks:calendar_view')
-            
+
             if not assigned_children:
                 messages.error(request, "Please select at least one child to assign this task to.")
                 return redirect('calendar_tasks:calendar_view')
 
             task = form.save(commit=False)
             task.family = request.user.family
-            task.assigned_to = assigned_children[0]  # Primary assignment for backward compatibility
+            task.assigned_to = assigned_children[0]
             task.created_by = request.user
             task.save()
-            
-            # Create assignments for all selected children
-            from .models import CalendarTaskAssignment
+
             for child_user in assigned_children:
                 CalendarTaskAssignment.objects.create(
                     task=task,
                     assigned_to=child_user
                 )
-            
+
             children_names = ', '.join([c.display_name for c in assigned_children])
             messages.success(request, f"Task '{task.title}' created for {children_names}! 📋")
             return redirect('calendar_tasks:calendar_view')
@@ -526,52 +579,36 @@ def create_calendar_task(request):
             except User.DoesNotExist:
                 child = None
 
-    ctx = {'form': form, 'child': child}
-    return render(request, 'calendar_tasks/create_calendar_task.html', ctx)
+    return render(request, 'calendar_tasks/create_calendar_task.html', {'form': form, 'child': child})
 
 
 @login_required
 @parent_required
 def edit_calendar_task(request, task_id):
-    """Edit a calendar task."""
-    task = get_object_or_404(
-        CalendarTask,
-        pk=task_id,
-        family=request.user.family
-    )
+    task = get_object_or_404(CalendarTask, pk=task_id, family=request.user.family)
 
     if request.method == 'POST':
         form = CalendarTaskForm(request.user.family, request.POST, instance=task)
         if form.is_valid():
             form.save()
 
-            # Update assignments for multiple children
-            assigned_children = form.cleaned_data.get('assigned_to_multiple', [])
+            assigned_children = list(form.cleaned_data.get('assigned_to_multiple', []))
             if assigned_children:
-                # Clear existing assignments
-                from .models import CalendarTaskAssignment
                 CalendarTaskAssignment.objects.filter(task=task).delete()
-
-                # Create new assignments
                 for child in assigned_children:
-                    CalendarTaskAssignment.objects.get_or_create(
-                        task=task,
-                        assigned_to=child
-                    )
+                    CalendarTaskAssignment.objects.get_or_create(task=task, assigned_to=child)
 
             messages.success(request, "Task updated!")
             return redirect('calendar_tasks:calendar_view')
     else:
         form = CalendarTaskForm(request.user.family, instance=task)
 
-    ctx = {'form': form, 'task': task}
-    return render(request, 'calendar_tasks/create_calendar_task.html', ctx)
+    return render(request, 'calendar_tasks/create_calendar_task.html', {'form': form, 'task': task})
 
 
 @login_required
 @parent_required
 def delete_calendar_task(request, task_id):
-    """Delete a calendar task."""
     task = get_object_or_404(
         CalendarTask,
         pk=task_id,
@@ -592,19 +629,13 @@ def delete_calendar_task(request, task_id):
 @login_required
 @parent_required
 def schedule_patterns_list(request):
-    """List all schedule patterns."""
-    patterns = SchedulePattern.objects.filter(
-        family=request.user.family
-    ).order_by('start_date')
-
-    ctx = {'patterns': patterns}
-    return render(request, 'calendar_tasks/schedule_patterns_list.html', ctx)
+    patterns = SchedulePattern.objects.filter(family=request.user.family).order_by('start_date')
+    return render(request, 'calendar_tasks/schedule_patterns_list.html', {'patterns': patterns})
 
 
 @login_required
 @parent_required
 def create_schedule_pattern(request):
-    """Create a schedule pattern (holiday, break, etc.)."""
     if request.method == 'POST':
         form = SchedulePatternForm(request.POST)
         if form.is_valid():
@@ -616,19 +647,13 @@ def create_schedule_pattern(request):
     else:
         form = SchedulePatternForm()
 
-    ctx = {'form': form, 'action': 'Create'}
-    return render(request, 'calendar_tasks/schedule_pattern_form.html', ctx)
+    return render(request, 'calendar_tasks/schedule_pattern_form.html', {'form': form, 'action': 'Create'})
 
 
 @login_required
 @parent_required
 def edit_schedule_pattern(request, pattern_id):
-    """Edit a schedule pattern."""
-    pattern = get_object_or_404(
-        SchedulePattern,
-        pk=pattern_id,
-        family=request.user.family
-    )
+    pattern = get_object_or_404(SchedulePattern, pk=pattern_id, family=request.user.family)
 
     if request.method == 'POST':
         form = SchedulePatternForm(request.POST, instance=pattern)
@@ -639,19 +664,13 @@ def edit_schedule_pattern(request, pattern_id):
     else:
         form = SchedulePatternForm(instance=pattern)
 
-    ctx = {'form': form, 'pattern': pattern}
-    return render(request, 'calendar_tasks/schedule_pattern_form.html', ctx)
+    return render(request, 'calendar_tasks/schedule_pattern_form.html', {'form': form, 'pattern': pattern})
 
 
 @login_required
 @parent_required
 def delete_schedule_pattern(request, pattern_id):
-    """Delete a schedule pattern."""
-    pattern = get_object_or_404(
-        SchedulePattern,
-        pk=pattern_id,
-        family=request.user.family
-    )
+    pattern = get_object_or_404(SchedulePattern, pk=pattern_id, family=request.user.family)
 
     if request.method == 'POST':
         pattern.delete()
@@ -666,36 +685,30 @@ def delete_schedule_pattern(request, pattern_id):
 @login_required
 @parent_required
 def bad_deeds_list(request):
-    """List all bad deeds for the family."""
     bad_deeds = BadDeed.objects.filter(
         family=request.user.family
     ).select_related('assigned_to', 'created_by')
-
-    ctx = {'bad_deeds': bad_deeds}
-    return render(request, 'calendar_tasks/bad_deeds_list.html', ctx)
+    return render(request, 'calendar_tasks/bad_deeds_list.html', {'bad_deeds': bad_deeds})
 
 
 @login_required
 @parent_required
 def create_bad_deed(request):
-    """Create a recurring bad deed template."""
     if request.method == 'POST':
         form = BadDeedForm(request.user.family, request.POST)
         if form.is_valid():
-            # Get multiple children if provided, otherwise use single assignment
-            assigned_children = form.cleaned_data.get('assigned_to_multiple', [])
+            assigned_children = list(form.cleaned_data.get('assigned_to_multiple', []))
             if not assigned_children:
                 assigned_to = form.cleaned_data.get('assigned_to')
                 if assigned_to:
                     assigned_children = [assigned_to]
 
             if not assigned_children:
-                messages.error(request, "Please select at least one child to assign this bad deed to.")
+                messages.error(request, "Please select at least one child.")
                 return redirect('calendar_tasks:create_bad_deed')
 
-            # Create a bad deed for each child
             for child in assigned_children:
-                bad_deed = BadDeed(
+                bad_deed = BadDeed.objects.create(
                     family=request.user.family,
                     title=form.cleaned_data['title'],
                     description=form.cleaned_data.get('description', ''),
@@ -711,9 +724,6 @@ def create_bad_deed(request):
                     end_date=form.cleaned_data.get('end_date'),
                     created_by=request.user
                 )
-                bad_deed.save()
-
-                # If recurring, generate calendar entries
                 if bad_deed.is_recurring:
                     bad_deed.generate_calendar_entries()
 
@@ -723,19 +733,13 @@ def create_bad_deed(request):
     else:
         form = BadDeedForm(request.user.family)
 
-    ctx = {'form': form, 'action': 'Create'}
-    return render(request, 'calendar_tasks/bad_deed_form.html', ctx)
+    return render(request, 'calendar_tasks/bad_deed_form.html', {'form': form, 'action': 'Create'})
 
 
 @login_required
 @parent_required
 def edit_bad_deed(request, bad_deed_id):
-    """Edit a bad deed template."""
-    bad_deed = get_object_or_404(
-        BadDeed,
-        pk=bad_deed_id,
-        family=request.user.family
-    )
+    bad_deed = get_object_or_404(BadDeed, pk=bad_deed_id, family=request.user.family)
 
     if request.method == 'POST':
         form = BadDeedForm(request.user.family, request.POST, instance=bad_deed)
@@ -746,19 +750,13 @@ def edit_bad_deed(request, bad_deed_id):
     else:
         form = BadDeedForm(request.user.family, instance=bad_deed)
 
-    ctx = {'form': form, 'action': 'Edit', 'bad_deed': bad_deed}
-    return render(request, 'calendar_tasks/bad_deed_form.html', ctx)
+    return render(request, 'calendar_tasks/bad_deed_form.html', {'form': form, 'action': 'Edit', 'bad_deed': bad_deed})
 
 
 @login_required
 @parent_required
 def delete_bad_deed(request, bad_deed_id):
-    """Deactivate a bad deed template."""
-    bad_deed = get_object_or_404(
-        BadDeed,
-        pk=bad_deed_id,
-        family=request.user.family
-    )
+    bad_deed = get_object_or_404(BadDeed, pk=bad_deed_id, family=request.user.family)
 
     if request.method == 'POST':
         bad_deed.is_active = False
@@ -772,7 +770,6 @@ def delete_bad_deed(request, bad_deed_id):
 @login_required
 @parent_required
 def add_bad_deed_instance(request, child_id=None):
-    """Parent adds a one-time bad deed instance (direct point deduction)."""
     child = None
     if child_id:
         child = get_object_or_404(User, pk=child_id, family=request.user.family, role=User.ROLE_CHILD)
@@ -780,7 +777,6 @@ def add_bad_deed_instance(request, child_id=None):
     if request.method == 'POST':
         form = BadDeedInstanceForm(request.POST)
         if form.is_valid():
-            # Get child from POST if not in URL
             child_id = request.POST.get('assigned_to')
             if not child_id:
                 messages.error(request, "Please select a child.")
@@ -788,7 +784,6 @@ def add_bad_deed_instance(request, child_id=None):
 
             child = get_object_or_404(User, pk=child_id, family=request.user.family, role=User.ROLE_CHILD)
 
-            # Create bad deed instance
             instance = form.save(commit=False)
             instance.family = request.user.family
             instance.assigned_to = child
@@ -796,7 +791,6 @@ def add_bad_deed_instance(request, child_id=None):
             instance.status = BadDeedInstance.STATUS_ACTIVE
             instance.save()
 
-            # IMMEDIATELY deduct points (no approval needed)
             child.add_points(
                 instance.negative_points,
                 reason=f"Bad deed: {instance.title} ({instance.reason})",
@@ -811,24 +805,20 @@ def add_bad_deed_instance(request, child_id=None):
     else:
         form = BadDeedInstanceForm()
 
-    ctx = {'form': form, 'child': child}
-    return render(request, 'calendar_tasks/add_bad_deed_instance.html', ctx)
+    return render(request, 'calendar_tasks/add_bad_deed_instance.html', {'form': form, 'child': child})
 
 
 @login_required
 @parent_required
 def bad_deeds_instances(request):
-    """View all bad deed instances (deductions made)."""
     instances = BadDeedInstance.objects.filter(
         family=request.user.family
     ).select_related('assigned_to', 'created_by', 'removed_by').order_by('-created_at')
 
-    # Filter by status
     status_filter = request.GET.get('status')
     if status_filter:
         instances = instances.filter(status=status_filter)
 
-    # Filter by child
     child_id = request.GET.get('child')
     if child_id:
         instances = instances.filter(assigned_to_id=child_id)
@@ -843,7 +833,6 @@ def bad_deeds_instances(request):
 @login_required
 @parent_required
 def remove_bad_deed(request, instance_id):
-    """Remove/reverse a bad deed (restore points)."""
     instance = get_object_or_404(
         BadDeedInstance,
         pk=instance_id,
@@ -852,14 +841,12 @@ def remove_bad_deed(request, instance_id):
     )
 
     if request.method == 'POST':
-        # Restore points
         instance.assigned_to.add_points(
             abs(instance.negative_points),
             reason=f"Bad deed reversed: {instance.title}",
             added_by=request.user
         )
 
-        # Mark as removed
         instance.status = BadDeedInstance.STATUS_REMOVED
         instance.removed_by = request.user
         instance.removed_at = timezone.now()
@@ -872,4 +859,3 @@ def remove_bad_deed(request, instance_id):
         return redirect('calendar_tasks:bad_deeds_instances')
 
     return render(request, 'calendar_tasks/remove_bad_deed_confirm.html', {'instance': instance})
-

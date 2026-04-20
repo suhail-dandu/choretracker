@@ -40,7 +40,8 @@ def generate_recurring_tasks():
             ).exists()
 
             if not existing:
-                CalendarTask.objects.create(
+                from .models import CalendarTaskAssignment
+                task = CalendarTask.objects.create(
                     family=template.family,
                     assigned_to=template.assigned_to,
                     title=template.chore_title,
@@ -51,6 +52,10 @@ def generate_recurring_tasks():
                     scheduled_time=template.scheduled_time,
                     recurring_template=template,
                     created_by=template.created_by,
+                )
+                CalendarTaskAssignment.objects.get_or_create(
+                    task=task,
+                    assigned_to=template.assigned_to
                 )
                 count += 1
 

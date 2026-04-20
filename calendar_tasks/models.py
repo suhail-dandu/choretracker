@@ -280,6 +280,11 @@ class CalendarTaskAssignment(models.Model):
         related_name='task_assignments',
         limit_choices_to={'role': 'child'}
     )
+    # Link back to a ChoreAssignment when the calendar entry originates from a chore
+    chore_assignment = models.ForeignKey(
+        'chores.ChoreAssignment', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='calendar_assignments'
+    )
 
     # Status tracking per child
     STATUS_PENDING = 'pending'

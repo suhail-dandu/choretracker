@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Approve Task - ChoreTracker{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">✅ Approve Task</h2>
+
+                    <div class="alert alert-info mb-4">
+                        <h5>{{ assignment.task.title }}</h5>
+                        {% if assignment.task.description %}
+                            <p class="mb-2">{{ assignment.task.description }}</p>
+                        {% endif %}
+                        <p class="mb-1"><strong>Child:</strong> {{ assignment.assigned_to.display_name }}</p>
+                        <p class="mb-1"><strong>Scheduled:</strong> {{ assignment.task.scheduled_date|date:"M d, Y" }} at {{ assignment.task.scheduled_time|time:"H:i" }}</p>
+                        <p class="mb-0"><strong>Points to award:</strong> <span class="badge bg-success fs-6">{{ assignment.task.points }} pts</span></p>
+                    </div>
+
+                    {% if assignment.note %}
+                        <div class="alert alert-light mb-3">
+                            <strong>{{ assignment.assigned_to.display_name }}'s note:</strong>
+                            <p class="mb-0">{{ assignment.note }}</p>
+                        </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                ✅ Approve & Award {{ assignment.task.points }} Points
+                            </button>
+                            <a href="{% url 'calendar_tasks:pending_task_approvals' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

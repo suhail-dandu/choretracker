@@ -26,12 +26,25 @@
       <form method="post">
         {% csrf_token %}
         <div class="mb-3">
-          <label class="form-label">Assign to</label>
-          {{ form.assigned_to }}
-          {% if form.assigned_to.errors %}<div class="text-danger small fw-700 mt-1">{{ form.assigned_to.errors.0 }}</div>{% endif %}
+          <label class="form-label fw-bold">Assign to</label>
+          <div class="border rounded p-3">
+            {% for checkbox in form.assigned_to_multiple %}
+              <div class="form-check">
+                {{ checkbox.tag }}
+                <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                  {{ checkbox.choice_label }}
+                </label>
+              </div>
+            {% empty %}
+              <p class="text-muted mb-0">No children in the family yet.</p>
+            {% endfor %}
+          </div>
+          {% if form.assigned_to_multiple.errors %}
+            <div class="text-danger small fw-700 mt-1">{{ form.assigned_to_multiple.errors.0 }}</div>
+          {% endif %}
         </div>
         <div class="mb-4">
-          <label class="form-label">Due Date & Time</label>
+          <label class="form-label fw-bold">Due Date & Time</label>
           {{ form.due_date }}
           {% if form.due_date.errors %}<div class="text-danger small fw-700 mt-1">{{ form.due_date.errors.0 }}</div>{% endif %}
         </div>

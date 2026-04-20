@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
 from chores.models import ChoreAssignment, PointTransaction
+from calendar_tasks.models import CalendarTaskAssignment
 from accounts.models import User
 
 
@@ -15,9 +16,15 @@ def home(request):
         return render(request, 'dashboard/no_family.html')
 
     kids = User.objects.filter(family=family, role=User.ROLE_CHILD).order_by('-total_points')
-    pending_approvals_count = ChoreAssignment.objects.filter(
+
+    # Count all pending approvals: both chore assignments and calendar task assignments
+    chore_pending = ChoreAssignment.objects.filter(
         chore__family=family, status=ChoreAssignment.STATUS_COMPLETED
     ).count()
+    calendar_pending = CalendarTaskAssignment.objects.filter(
+        task__family=family, status=CalendarTaskAssignment.STATUS_COMPLETED
+    ).count()
+    pending_approvals_count = chore_pending + calendar_pending
 
     if user.is_parent:
         ctx = _parent_dashboard(request, family, kids, pending_approvals_count)

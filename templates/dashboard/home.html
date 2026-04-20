@@ -21,7 +21,7 @@
       <i class="bi bi-plus-circle-fill me-1"></i>New Chore
     </a>
     {% if pending_approvals_count %}
-    <a href="{% url 'chores:pending_approvals' %}" class="btn btn-ct-warning">
+    <a href="{% url 'calendar_tasks:pending_task_approvals' %}" class="btn btn-ct-warning">
       <i class="bi bi-hourglass-split me-1"></i>
       {{ pending_approvals_count }} Approval{{ pending_approvals_count|pluralize }}!
     </a>

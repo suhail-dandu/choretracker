@@ -12,67 +12,145 @@
                 {% if is_today %}<span class="badge bg-primary">Today</span>{% endif %}
             </h2>
         </div>
+        {% if user.is_parent %}
+        <a href="{% url 'calendar_tasks:create_calendar_task' %}" class="btn btn-primary btn-sm">➕ Add Task</a>
+        {% endif %}
     </div>
 
-    {% if tasks %}
-        <div class="row">
-            {% for task in tasks %}
-                <div class="col-md-6 mb-3">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h5 class="card-title">{{ task.title }}</h5>
-                                    <p class="card-text text-muted">{{ task.description }}</p>
-                                    <div class="mb-2">
-                                        <span class="badge bg-warning">{{ task.get_category_display }}</span>
-                                        <span class="badge bg-info">{{ task.points }} pts</span>
-                                        <span class="badge bg-{% if task.status == 'approved' %}success{% elif task.status == 'completed' %}warning{% else %}secondary{% endif %}">
-                                            {{ task.get_status_display }}
-                                        </span>
+    {% if user.is_child %}
+        {# Kid view: show their CalendarTaskAssignment records #}
+        {% if assignments %}
+            <div class="row">
+                {% for assignment in assignments %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-{% if assignment.status == 'approved' %}success{% elif assignment.status == 'completed' %}warning{% elif assignment.status == 'rejected' %}danger{% else %}info{% endif %}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title">{{ assignment.task.title }}</h5>
+                                        {% if assignment.task.description %}
+                                            <p class="card-text text-muted small">{{ assignment.task.description }}</p>
+                                        {% endif %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-warning text-dark">{{ assignment.task.get_category_display }}</span>
+                                            <span class="badge bg-info">{{ assignment.task.points }} pts</span>
+                                            <span class="badge bg-{% if assignment.status == 'approved' %}success{% elif assignment.status == 'completed' %}warning{% elif assignment.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                                {{ assignment.get_status_display }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">
+                                            🕐 {{ assignment.task.scheduled_time|time:"H:i" }}
+                                            {% if assignment.task.due_time %}— Due: {{ assignment.task.due_time|time:"H:i" }}{% endif %}
+                                        </small>
                                     </div>
-                                    <small class="text-muted">
-                                        🕐 {{ task.scheduled_time|time:"H:i" }}
-                                        {% if task.due_time %}— Due: {{ task.due_time|time:"H:i" }}{% endif %}
-                                    </small>
                                 </div>
-                            </div>
 
-                            {% if user.is_parent %}
-                                <p class="text-muted small mt-2">
-                                    <strong>Assigned to:</strong> {{ task.get_assigned_children_names }}
-                                </p>
-                            {% endif %}
-
-                            {% if task.status == 'pending' and user.is_child %}
-                                {% comment %}Check if kid is assigned to this task{% endcomment %}
-                                {% if task.child_assignments.all %}
+                                {% if assignment.status == 'completed' %}
+                                    <div class="alert alert-warning mt-3 mb-0 py-2">
+                                        <small>⏳ Waiting for parent approval</small>
+                                        {% if assignment.note %}<p class="mb-0 small">Your note: {{ assignment.note }}</p>{% endif %}
+                                    </div>
+                                {% elif assignment.status == 'approved' %}
+                                    <div class="alert alert-success mt-3 mb-0 py-2">
+                                        <small>✅ Approved — {{ assignment.task.points }} pts awarded!</small>
+                                    </div>
+                                {% elif assignment.status == 'rejected' %}
+                                    <div class="alert alert-danger mt-3 mb-0 py-2">
+                                        <small>❌ Rejected{% if assignment.rejection_reason %}: {{ assignment.rejection_reason }}{% endif %}</small>
+                                    </div>
+                                {% elif assignment.status == 'pending' %}
                                     <div class="mt-3">
-                                        <a href="{% url 'calendar_tasks:task_complete' task.pk %}" class="btn btn-success btn-sm">
+                                        <a href="{% url 'calendar_tasks:task_complete' assignment.task.pk %}" class="btn btn-success btn-sm">
                                             ✅ Mark Complete
                                         </a>
                                     </div>
                                 {% endif %}
-                            {% elif task.status == 'completed' and user.is_parent %}
-                                <div class="mt-3">
-                                    <a href="{% url 'calendar_tasks:task_approve' task.pk %}" class="btn btn-success btn-sm">
-                                        ✅ Approve
-                                    </a>
-                                    <a href="{% url 'calendar_tasks:task_reject' task.pk %}" class="btn btn-danger btn-sm">
-                                        ❌ Reject
-                                    </a>
-                                </div>
-                            {% endif %}
+                            </div>
                         </div>
                     </div>
-                </div>
-            {% endfor %}
-        </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info text-center">
+                <p>No tasks scheduled for you today 🎉</p>
+            </div>
+        {% endif %}
+
     {% else %}
-        <div class="alert alert-info text-center">
-            <p>No tasks scheduled for this day 🎉</p>
-        </div>
+        {# Parent view: show all family tasks with per-child assignment info #}
+        {% if tasks %}
+            <div class="row">
+                {% for task in tasks %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title">{{ task.title }}</h5>
+                                        {% if task.description %}
+                                            <p class="card-text text-muted small">{{ task.description }}</p>
+                                        {% endif %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-warning text-dark">{{ task.get_category_display }}</span>
+                                            <span class="badge bg-info">{{ task.points }} pts</span>
+                                        </div>
+                                        <small class="text-muted">
+                                            🕐 {{ task.scheduled_time|time:"H:i" }}
+                                            {% if task.due_time %}— Due: {{ task.due_time|time:"H:i" }}{% endif %}
+                                        </small>
+                                    </div>
+                                    <div class="d-flex gap-1">
+                                        <a href="{% url 'calendar_tasks:edit_calendar_task' task.pk %}" class="btn btn-outline-secondary btn-sm">✏️</a>
+                                        {% if task.status == 'pending' %}
+                                        <a href="{% url 'calendar_tasks:delete_calendar_task' task.pk %}" class="btn btn-outline-danger btn-sm">🗑️</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                {# Show per-child assignment status #}
+                                {% if task.child_assignments.all %}
+                                    <div class="mt-3">
+                                        <small class="text-muted fw-bold">Assigned children:</small>
+                                        {% for ca in task.child_assignments.all %}
+                                            <div class="d-flex justify-content-between align-items-center mt-1">
+                                                <span class="small">{{ ca.assigned_to.display_name }}</span>
+                                                <span class="badge bg-{% if ca.status == 'approved' %}success{% elif ca.status == 'completed' %}warning{% elif ca.status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                                                    {{ ca.get_status_display }}
+                                                </span>
+                                            </div>
+                                            {% if ca.status == 'completed' %}
+                                                <div class="d-flex gap-1 mt-1">
+                                                    {% if ca.note %}
+                                                        <small class="text-muted fst-italic">Note: {{ ca.note|truncatechars:60 }}</small>
+                                                    {% endif %}
+                                                    <a href="{% url 'calendar_tasks:assignment_approve' ca.pk %}" class="btn btn-success btn-sm py-0 ms-auto">✅ Approve</a>
+                                                    <a href="{% url 'calendar_tasks:assignment_reject' ca.pk %}" class="btn btn-danger btn-sm py-0">❌ Reject</a>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {# Legacy: no assignments, show task-level status #}
+                                    <p class="text-muted small mt-2">
+                                        <strong>Assigned to:</strong> {{ task.assigned_to.display_name }}
+                                    </p>
+                                    {% if task.status == 'completed' %}
+                                        <div class="d-flex gap-2 mt-2">
+                                            <a href="{% url 'calendar_tasks:task_approve' task.pk %}" class="btn btn-success btn-sm">✅ Approve</a>
+                                            <a href="{% url 'calendar_tasks:task_reject' task.pk %}" class="btn btn-danger btn-sm">❌ Reject</a>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info text-center">
+                <p>No tasks scheduled for this day 🎉</p>
+            </div>
+        {% endif %}
     {% endif %}
 </div>
 {% endblock %}
-

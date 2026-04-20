@@ -18,6 +18,8 @@ urlpatterns = [
     path('approvals/', views.pending_task_approvals, name='pending_task_approvals'),
     path('task/<int:task_id>/approve/', views.task_approve, name='task_approve'),
     path('task/<int:task_id>/reject/', views.task_reject, name='task_reject'),
+    path('assignment/<int:assignment_id>/approve/', views.assignment_approve, name='assignment_approve'),
+    path('assignment/<int:assignment_id>/reject/', views.assignment_reject, name='assignment_reject'),
 
     # Recurring templates
     path('recurring/', views.recurring_templates_list, name='recurring_templates_list'),
