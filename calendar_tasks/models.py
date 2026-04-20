@@ -230,6 +230,18 @@ class CalendarTask(models.Model):
             )
             return scheduled_datetime < timezone.now()
         return False
+    
+    def get_assigned_children(self):
+        """Get all children assigned to this task via CalendarTaskAssignment."""
+        return User.objects.filter(
+            task_assignments__task=self,
+            role='child'
+        ).distinct()
+    
+    def get_assigned_children_names(self):
+        """Get comma-separated names of assigned children."""
+        children = self.get_assigned_children()
+        return ', '.join([c.display_name for c in children]) if children.exists() else self.assigned_to.display_name
 
     def mark_completed(self, note=''):
         """Mark task as completed."""
@@ -392,6 +404,78 @@ class BadDeed(models.Model):
     def actual_points(self):
         """Return negative points."""
         return -abs(self.negative_points)
+    
+    def generate_calendar_entries(self, start_date=None, end_date=None):
+        """Generate calendar task entries for this bad deed if it's recurring."""
+        if not self.is_recurring:
+            return
+        
+        from django.db import models
+        if not start_date:
+            start_date = timezone.now().date()
+        if not end_date:
+            end_date = start_date + timedelta(days=30)
+        
+        # Get all dates this bad deed should appear on
+        dates_to_create = []
+        
+        if self.frequency == 'daily':
+            current = start_date
+            while current <= end_date:
+                dates_to_create.append(current)
+                current += timedelta(days=1)
+        
+        elif self.frequency == 'weekly':
+            if self.days_of_week:
+                target_days = [int(d.strip()) for d in self.days_of_week.split(',')]
+            else:
+                target_days = list(range(7))  # All days
+            
+            current = start_date
+            while current <= end_date:
+                if current.weekday() in target_days:
+                    dates_to_create.append(current)
+                current += timedelta(days=1)
+        
+        elif self.frequency == 'monthly':
+            day = self.day_of_month or start_date.day
+            current = start_date
+            while current <= end_date:
+                try:
+                    target_date = current.replace(day=day)
+                    if target_date >= start_date and target_date <= end_date:
+                        dates_to_create.append(target_date)
+                except ValueError:
+                    pass
+                
+                # Move to next month
+                if current.month == 12:
+                    current = current.replace(year=current.year + 1, month=1, day=1)
+                else:
+                    current = current.replace(month=current.month + 1, day=1)
+        
+        # Create calendar task for each date (marked as bad deed for styling)
+        for task_date in dates_to_create:
+            # Check if entry already exists
+            existing = CalendarTask.objects.filter(
+                assigned_to=self.assigned_to,
+                scheduled_date=task_date,
+                title__startswith=f"❌ {self.title}"
+            ).exists()
+            
+            if not existing:
+                CalendarTask.objects.create(
+                    family=self.family,
+                    assigned_to=self.assigned_to,
+                    title=f"❌ {self.title}",
+                    description=self.description,
+                    points=self.actual_points,  # Negative points
+                    category='other',
+                    scheduled_date=task_date,
+                    scheduled_time=self.scheduled_time,
+                    created_by=self.created_by,
+                    status=CalendarTask.STATUS_PENDING
+                )
 
 
 class BadDeedInstance(models.Model):

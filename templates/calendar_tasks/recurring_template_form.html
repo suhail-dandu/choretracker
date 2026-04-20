@@ -48,12 +48,21 @@
                                 {% endif %}
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="{{ form.assigned_to.id_for_label }}" class="form-label">{{ form.assigned_to.label }}</label>
+                                <label for="{{ form.assigned_to.id_for_label }}" class="form-label">{{ form.assigned_to.label }} (Primary)</label>
                                 {{ form.assigned_to }}
                                 {% if form.assigned_to.errors %}
                                     <div class="invalid-feedback d-block">{{ form.assigned_to.errors }}</div>
                                 {% endif %}
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.assigned_to_multiple.id_for_label }}" class="form-label">{{ form.assigned_to_multiple.label }}</label>
+                            {{ form.assigned_to_multiple }}
+                            <small class="form-text text-muted">Select multiple children to assign this chore to all of them</small>
+                            {% if form.assigned_to_multiple.errors %}
+                                <div class="invalid-feedback d-block">{{ form.assigned_to_multiple.errors }}</div>
+                            {% endif %}
                         </div>
 
                         <div class="row">

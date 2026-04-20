@@ -6,6 +6,14 @@ from accounts.models import User
 class RecurringChoreTemplateForm(forms.ModelForm):
     """Form for creating/editing recurring chores."""
 
+    # Support for multiple children
+    assigned_to_multiple = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Assign to children"
+    )
+
     class Meta:
         model = RecurringChoreTemplate
         fields = [
@@ -32,9 +40,11 @@ class RecurringChoreTemplateForm(forms.ModelForm):
 
     def __init__(self, family, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['assigned_to'].queryset = User.objects.filter(
+        children_qs = User.objects.filter(
             family=family, role=User.ROLE_CHILD
         )
+        self.fields['assigned_to'].queryset = children_qs
+        self.fields['assigned_to_multiple'].queryset = children_qs
 
     def clean(self):
         cleaned_data = super().clean()
@@ -137,6 +147,14 @@ class SchedulePatternForm(forms.ModelForm):
 
 class BadDeedForm(forms.ModelForm):
     """Form for creating bad deeds (recurring or one-time)."""
+    
+    # Support for multiple children
+    assigned_to_multiple = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Assign to children"
+    )
 
     class Meta:
         model = BadDeed
@@ -165,9 +183,11 @@ class BadDeedForm(forms.ModelForm):
 
     def __init__(self, family, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['assigned_to'].queryset = User.objects.filter(
+        children_qs = User.objects.filter(
             family=family, role=User.ROLE_CHILD
         )
+        self.fields['assigned_to'].queryset = children_qs
+        self.fields['assigned_to_multiple'].queryset = children_qs
 
     def clean(self):
         cleaned_data = super().clean()

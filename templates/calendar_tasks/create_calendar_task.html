@@ -83,6 +83,15 @@
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="{{ form.assigned_to_multiple.id_for_label }}" class="form-label">{{ form.assigned_to_multiple.label }}</label>
+                            {{ form.assigned_to_multiple }}
+                            <small class="form-text text-muted">Select one or more children to assign this task</small>
+                            {% if form.assigned_to_multiple.errors %}
+                                <div class="invalid-feedback d-block">{{ form.assigned_to_multiple.errors }}</div>
+                            {% endif %}
+                        </div>
+
                         {% if form.non_field_errors %}
                             <div class="alert alert-danger">
                                 {{ form.non_field_errors }}

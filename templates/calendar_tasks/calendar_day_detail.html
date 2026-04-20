@@ -38,12 +38,21 @@
                                 </div>
                             </div>
 
-                            {% if task.status == 'pending' and task.assigned_to == user %}
-                                <div class="mt-3">
-                                    <a href="{% url 'calendar_tasks:task_complete' task.pk %}" class="btn btn-success btn-sm">
-                                        ✅ Mark Complete
-                                    </a>
-                                </div>
+                            {% if user.is_parent %}
+                                <p class="text-muted small mt-2">
+                                    <strong>Assigned to:</strong> {{ task.get_assigned_children_names }}
+                                </p>
+                            {% endif %}
+
+                            {% if task.status == 'pending' and user.is_child %}
+                                {% comment %}Check if kid is assigned to this task{% endcomment %}
+                                {% if task.child_assignments.all %}
+                                    <div class="mt-3">
+                                        <a href="{% url 'calendar_tasks:task_complete' task.pk %}" class="btn btn-success btn-sm">
+                                            ✅ Mark Complete
+                                        </a>
+                                    </div>
+                                {% endif %}
                             {% elif task.status == 'completed' and user.is_parent %}
                                 <div class="mt-3">
                                     <a href="{% url 'calendar_tasks:task_approve' task.pk %}" class="btn btn-success btn-sm">
